@@ -1,0 +1,21 @@
+{
+  "name": "threads-affiliate-automation",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Threads affiliate automation — sync konten dari Google Docs, auto-post 3 utas berantai (hook / produk+gambar / reply link) ke Threads, tarik insights. Jalan di GitHub Actions.",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "sync": "node scripts/run-sync.js",
+    "publish": "node scripts/run-publish.js",
+    "insights": "node scripts/run-insights.js",
+    "get-token": "node scripts/get-threads-token.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "googleapis": "^140.0.1",
+    "libsodium-wrappers": "^0.8.4"
+  }
+}

@@ -1,0 +1,29 @@
+name: Threads Affiliate - Sync & Publish
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+concurrency:
+  group: threads-affiliate-publish
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run publish
+        env:
+          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.THREADS_GOOGLE_SERVICE_ACCOUNT_KEY }}
+          THREADS_CONTENT_DOC_ID: ${{ secrets.THREADS_CONTENT_DOC_ID }}
+          THREADS_TRACKER_SPREADSHEET_ID: ${{ secrets.THREADS_TRACKER_SPREADSHEET_ID }}
+          THREADS_DRIVE_IMAGE_FOLDER_ID: ${{ secrets.THREADS_DRIVE_IMAGE_FOLDER_ID }}
+          THREADS_SHEET_NAME: ${{ secrets.THREADS_SHEET_NAME }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}
+          SECRETS_WRITE_PAT: ${{ secrets.SECRETS_WRITE_PAT }}
