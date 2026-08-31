@@ -66,15 +66,21 @@ async function getThreadsClient() {
     throw new Error("THREADS_USER_ID / THREADS_ACCESS_TOKEN belum di-set.");
   }
 
-  const newToken = await refreshLongLivedToken(currentToken);
-  if (newToken && newToken !== currentToken) {
-    console.log("  Token Threads di-refresh, nulis balik ke GitHub Secret...");
-    await updateGithubSecret("THREADS_ACCESS_TOKEN", newToken).catch((e) =>
-      console.log(`  (warning) gagal nulis balik token: ${e.message}`)
-    );
+  // Cuma refresh kalau bisa nyimpen hasilnya (butuh PAT). Tanpa itu, biarkan token
+  // apa adanya (long-lived 60 hari) dan re-exchange manual pakai `npm run get-token`.
+  let token = currentToken;
+  if (process.env.SECRETS_WRITE_PAT && process.env.GITHUB_REPOSITORY) {
+    const newToken = await refreshLongLivedToken(currentToken);
+    if (newToken && newToken !== currentToken) {
+      console.log("  Token Threads di-refresh, nulis balik ke GitHub Secret...");
+      await updateGithubSecret("THREADS_ACCESS_TOKEN", newToken).catch((e) =>
+        console.log(`  (warning) gagal nulis balik token: ${e.message}`)
+      );
+      token = newToken;
+    }
   }
 
-  return makeClient({ userId, accessToken: newToken || currentToken });
+  return makeClient({ userId, accessToken: token });
 }
 
 module.exports = { getThreadsClient, refreshLongLivedToken, updateGithubSecret };

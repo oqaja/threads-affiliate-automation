@@ -9,6 +9,7 @@
   },
   "scripts": {
     "check": "node --env-file-if-exists=.env scripts/check-setup.js",
+    "preview": "node --env-file-if-exists=.env scripts/preview.js",
     "sync": "node --env-file-if-exists=.env scripts/run-sync.js",
     "publish": "node --env-file-if-exists=.env scripts/run-publish.js",
     "insights": "node --env-file-if-exists=.env scripts/run-insights.js",
