@@ -10,7 +10,7 @@ const { CONFIG, assertCoreConfig } = require("../src/lib/config");
 const { parseContentDoc } = require("../src/lib/docsReader");
 const { readSheetAsObjects } = require("../src/lib/sheetsHelper");
 const { findImagesForTitle } = require("../src/lib/driveFinder");
-const { applyPlaceholders, resolveLink } = require("../src/lib/publishThreads");
+const { applyPlaceholders, resolveLink, jamDisplay } = require("../src/lib/publishThreads");
 
 const C = CONFIG.COL;
 const S = CONFIG.STATUS;
@@ -48,11 +48,11 @@ function box(label, text) {
     }
     const brand = String(row[C.BRAND] || "").trim();
     const link = resolveLink(row);
-    const jam = String(row[C.JAM] || "").trim();
+    const jam = jamDisplay(row[C.JAM]);
     const jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
     const images = await findImagesForTitle(drive, judul).catch(() => []);
 
-    console.log(`  brand=${brand || "-"}  jam=${jam || "(langsung)"}  jeda Utas2=${jeda}m  link=${link || "-"}`);
+    console.log(`  brand=${brand || "-"}  jam=${jam}  jeda Utas2=${jeda}m  link=${link || "-"}`);
     if (!brand) console.log(`  ! Brand/Produk kosong — "[Brand/Produk]" tidak akan ke-replace`);
     if (!link) console.log(`  ! Link Affiliate kosong — reply link akan GAGAL`);
 

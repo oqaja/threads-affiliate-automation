@@ -27,14 +27,42 @@ function normKey(s) {
   return String(s || "").trim().toLowerCase();
 }
 
-/** "Jam Threads" (HH:MM WIB) sudah lewat belum untuk hari ini? Kosong = anggap sudah. */
+/**
+ * "Jam Threads" -> menit dalam sehari (WIB). Terima:
+ *   - number 0..1  : serial waktu Google Sheets (0.7916.. = 19:00)
+ *   - "19:00" / "19.00" : string jam
+ * null kalau kosong / tidak valid.
+ */
+function jamToMinutes(jamCell) {
+  if (jamCell === "" || jamCell == null) return null;
+  // Serial waktu Google Sheets: selalu pecahan 0..1 (0.7916.. = 19:00).
+  if (typeof jamCell === "number" && !isNaN(jamCell) && jamCell > 0 && jamCell < 1) {
+    return Math.round(jamCell * 24 * 60);
+  }
+  const raw = String(jamCell).trim();
+  if (/^0?\.\d+$/.test(raw)) return Math.round(parseFloat(raw) * 24 * 60); // "0.79166"
+  // "19:00" / "19.00" / "9:5"
+  const m = raw.replace(".", ":").match(/^(\d{1,2}):(\d{1,2})/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const min = parseInt(m[2], 10);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
+/** Jam Threads sudah lewat belum untuk hari ini (WIB)? Kosong/invalid = anggap sudah. */
 function jamThreadsPassed(jamCell) {
-  const s = String(jamCell || "").trim().replace(".", ":");
-  const m = s.match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return true;
-  const target = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const target = jamToMinutes(jamCell);
+  if (target == null) return true;
   const now = getDatePartsInTimezone(new Date(), CONFIG.TIMEZONE);
   return now.hour * 60 + now.minute >= target;
+}
+
+/** "19:00" buat ditampilkan (dari cell apa pun bentuknya). */
+function jamDisplay(jamCell) {
+  const t = jamToMinutes(jamCell);
+  if (t == null) return "(langsung)";
+  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
 /**
@@ -239,4 +267,12 @@ async function runPublish({ sheets, drive, docs, threads }) {
   console.log("Selesai proses publish.");
 }
 
-module.exports = { runPublish, applyPlaceholders, resolveLink, stripInstructionLines };
+module.exports = {
+  runPublish,
+  applyPlaceholders,
+  resolveLink,
+  stripInstructionLines,
+  jamToMinutes,
+  jamThreadsPassed,
+  jamDisplay,
+};

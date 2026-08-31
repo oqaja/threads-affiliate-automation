@@ -2,7 +2,12 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { parseContentDoc } = require("../src/lib/docsReader");
-const { applyPlaceholders, resolveLink, stripInstructionLines } = require("../src/lib/publishThreads");
+const {
+  applyPlaceholders,
+  resolveLink,
+  stripInstructionLines,
+  jamToMinutes,
+} = require("../src/lib/publishThreads");
 
 /** Objek dokumen palsu ala Google Docs API dari daftar baris. */
 function fakeDoc(lines) {
@@ -90,6 +95,15 @@ test("applyPlaceholders: replace brand + link, buang baris instruksi", () => {
     link: "https://s.shopee.co.id/abc",
   });
   assert.equal(out, "Brand Lokal X mantap. link: https://s.shopee.co.id/abc");
+});
+
+test("jamToMinutes: serial time & string", () => {
+  assert.equal(jamToMinutes(0.7916666666666666), 19 * 60); // serial 19:00
+  assert.equal(jamToMinutes("19:00"), 19 * 60);
+  assert.equal(jamToMinutes("19.00"), 19 * 60);
+  assert.equal(jamToMinutes("07:30"), 7 * 60 + 30);
+  assert.equal(jamToMinutes(""), null);
+  assert.equal(jamToMinutes("bukan jam"), null);
 });
 
 test("resolveLink: pakai Link Affiliate apa adanya (tanpa UTM)", () => {
