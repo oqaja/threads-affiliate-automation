@@ -59,9 +59,14 @@ test("parseContentDoc: fallback heading + JUDUL:, buang blok placeholder", () =>
   assert.equal(blocks[1].utas1, "Hype 550 lagi kenceng.");
 });
 
-test("stripInstructionLines: buang baris kurung siku penuh, simpan yang inline", () => {
+test("stripInstructionLines: buang baris kurung siku penuh (termasuk bersarang), simpan yang inline", () => {
   const out = stripInstructionLines("[Brand/Produk] keren.\n[script replace ...]\nbeneran keren.");
   assert.equal(out, "[Brand/Produk] keren.\nbeneran keren.");
+
+  const nested = stripInstructionLines(
+    'Teks produk asli.\n[script otomatis replace "[Brand/Produk]" pakai isi field Brand/Produk di atas]'
+  );
+  assert.equal(nested, "Teks produk asli.");
 });
 
 test("applyPlaceholders: replace brand + link", () => {

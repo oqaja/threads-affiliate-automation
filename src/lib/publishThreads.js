@@ -37,11 +37,22 @@ function jamThreadsPassed(jamCell) {
   return now.hour * 60 + now.minute >= target;
 }
 
-/** Buang baris yang seluruhnya instruksi dalam kurung siku, mis. "[script otomatis replace ...]". */
+/**
+ * Buang baris instruksi template, mis:
+ *   [Isi teks hook di sini.]
+ *   [script otomatis replace "[Brand/Produk]" pakai isi field Brand/Produk di atas]
+ * Baris dianggap instruksi kalau seluruhnya dibungkus kurung siku (boleh ada
+ * kurung siku bersarang di dalamnya) ATAU mengandung frasa "script ... replace".
+ */
 function stripInstructionLines(text) {
   return text
     .split("\n")
-    .filter((line) => !/^\s*\[[^\]]*\]\s*$/.test(line))
+    .filter((line) => {
+      const l = line.trim();
+      if (/^\[.*\]$/.test(l)) return false;
+      if (/script\s+(otomatis|auto)?\s*-?\s*replace/i.test(l)) return false;
+      return true;
+    })
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
