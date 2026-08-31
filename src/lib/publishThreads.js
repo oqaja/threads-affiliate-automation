@@ -168,6 +168,7 @@ async function processRow(row, block, ctx) {
 
       console.log(`  -> post Utas 1: ${judul}`);
       const id1 = await publishText(threads, { text });
+      console.log(`     OK Utas 1 -> media ${id1}`);
       await write(sheets, headerMap, rowNum, C.POST_ID_1, id1);
       await setStatus(S.UTAS1_DONE);
       await setCatatan(`Utas 1 published ${id1} @ ${new Date().toISOString()}`);
@@ -193,6 +194,7 @@ async function processRow(row, block, ctx) {
         images,
         replyToId: String(row[C.POST_ID_1]).trim(),
       });
+      console.log(`     OK Utas 2 -> media ${id2}`);
       await write(sheets, headerMap, rowNum, C.POST_ID_2, id2);
       await setStatus(S.UTAS2_DONE);
       await setCatatan(`Utas 2 published ${id2} (${images.length} gambar)`);
@@ -208,6 +210,7 @@ async function processRow(row, block, ctx) {
 
       console.log(`  -> post Reply link: ${judul}`);
       const idR = await publishText(threads, { text, replyToId: String(row[C.POST_ID_2]).trim() });
+      console.log(`     OK Reply -> media ${idR}`);
       await write(sheets, headerMap, rowNum, C.POST_ID_REPLY, idR);
       await setStatus(S.PUBLISHED);
       await setCatatan(`Selesai. Reply link ${idR}`);

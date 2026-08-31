@@ -169,7 +169,10 @@ const warn = (m) => console.log(`  ! ${m}`);
     const imgs = await findImagesForTitle(drive, b.judul).catch(() => []);
     const rowStr = row ? `Sheet: baris ${row._rowNumber}, STATUS "${row[C.STATUS] || "(kosong)"}"` : "Sheet: BELUM ADA (akan di-append saat sync)";
     const imgStr = imgs.length ? `${imgs.length} gambar (${imgs.map((i) => i.name).join(", ")})` : "0 gambar → Utas 2 jadi text-only";
-    console.log(`   • ${b.judul}\n       ${rowStr}\n       ${imgStr}`);
+    const ids = row
+      ? [C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY].map((c) => `${c}=${row[c] || "-"}`).join("  ")
+      : "";
+    console.log(`   • ${b.judul}\n       ${rowStr}\n       ${imgStr}${ids ? `\n       ${ids}` : ""}`);
   }
 
   console.log(`\n  service account: ${getServiceAccountEmail()}`);
