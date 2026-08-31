@@ -71,9 +71,12 @@ function resolveLink(row) {
 }
 
 function applyPlaceholders(text, { brand, link }) {
-  let out = stripInstructionLines(text || "");
+  // Substitusi placeholder DULU, baru buang baris instruksi — supaya baris konten
+  // yang kebetulan diapit "[Brand/Produk] ... [Link Affiliate]" tidak ikut kebuang.
+  let out = text || "";
   if (brand) out = out.split(CONFIG.PLACEHOLDER.BRAND).join(brand);
   if (link) out = out.split(CONFIG.PLACEHOLDER.LINK).join(link);
+  out = stripInstructionLines(out);
   return out.trim();
 }
 
