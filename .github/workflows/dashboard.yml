@@ -43,8 +43,6 @@ jobs:
           rsvg-convert -w 512 -h 512 dashboard/icon.svg -o dashboard/icon-512.png
           rsvg-convert -w 180 -h 180 dashboard/icon.svg -o dashboard/apple-touch-icon.png
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dashboard
