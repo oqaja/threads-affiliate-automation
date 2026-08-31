@@ -1,8 +1,7 @@
 name: Threads Affiliate - Insights
 on:
-  # Aktifkan lagi setelah 1x manual run sukses:
-  # schedule:
-  #   - cron: '17 */3 * * *'
+  schedule:
+    - cron: '17 */3 * * *'
   workflow_dispatch:
 concurrency:
   group: threads-affiliate-insights

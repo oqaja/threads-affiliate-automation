@@ -1,8 +1,7 @@
 name: Threads Affiliate - Sync & Publish
 on:
-  # Aktifkan lagi setelah 1x manual run sukses:
-  # schedule:
-  #   - cron: '*/15 * * * *'
+  schedule:
+    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
