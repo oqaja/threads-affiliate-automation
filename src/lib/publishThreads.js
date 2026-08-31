@@ -58,16 +58,9 @@ function stripInstructionLines(text) {
     .trim();
 }
 
+/** Link yang dipakai di Reply = isi kolom "Link Affiliate" apa adanya (tanpa tambahan UTM). */
 function resolveLink(row) {
-  const link = String(row[C.LINK] || "").trim();
-  const utm = String(row[C.UTM] || "").trim();
-  if (!utm) return link;
-  if (/^https?:\/\//i.test(utm)) return utm;
-  if (utm.startsWith("?") || utm.startsWith("&")) {
-    const sep = link.includes("?") ? "&" : "";
-    return link + (utm.startsWith("?") && link.includes("?") ? "&" + utm.slice(1) : sep + utm);
-  }
-  return link;
+  return String(row[C.LINK] || "").trim();
 }
 
 function applyPlaceholders(text, { brand, link }) {

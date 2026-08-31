@@ -11,6 +11,7 @@
     "check": "node --env-file-if-exists=.env scripts/check-setup.js",
     "preview": "node --env-file-if-exists=.env scripts/preview.js",
     "set-cell": "node --env-file-if-exists=.env scripts/set-cell.js",
+    "delete-column": "node --env-file-if-exists=.env scripts/delete-column.js",
     "sync": "node --env-file-if-exists=.env scripts/run-sync.js",
     "publish": "node --env-file-if-exists=.env scripts/run-publish.js",
     "insights": "node --env-file-if-exists=.env scripts/run-insights.js",

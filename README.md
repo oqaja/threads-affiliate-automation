@@ -49,7 +49,7 @@ sering telat beberapa menit saat load tinggi, jadi jeda efektif ≈ 5–12 menit
 ## Placeholder yang di-replace otomatis saat publish
 
 - `[Brand/Produk]` → kolom `Brand/Produk`
-- `[Link Affiliate]` → kolom `UTM Link Affiliate` (kalau ada) atau `Link Affiliate`
+- `[Link Affiliate]` → kolom `Link Affiliate` (apa adanya, tanpa tambahan apa pun)
 - Baris yang isinya **seluruhnya** dalam kurung siku (mis. `[script otomatis replace ...]`) dibuang.
 
 ## Gambar

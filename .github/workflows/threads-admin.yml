@@ -1,15 +1,20 @@
-name: Threads Affiliate - Set Cell
+name: Threads Affiliate - Admin
 on:
   workflow_dispatch:
     inputs:
+      action:
+        description: 'Aksi'
+        type: choice
+        options: [set-cell, delete-column]
+        default: set-cell
       judul:
-        description: 'Judul Konten (match ke kolom Judul Konten)'
-        required: true
+        description: '(set-cell) Judul Konten'
+        required: false
       col:
         description: 'Nama kolom (persis header baris 3)'
         required: true
       value:
-        description: 'Nilai baru (kosongkan untuk clear)'
+        description: '(set-cell) Nilai baru — kosongkan untuk clear'
         required: false
         default: ''
 jobs:
@@ -35,4 +40,7 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npm run set-cell
+      - if: inputs.action == 'set-cell'
+        run: npm run set-cell
+      - if: inputs.action == 'delete-column'
+        run: npm run delete-column

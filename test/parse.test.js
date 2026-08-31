@@ -77,17 +77,11 @@ test("applyPlaceholders: replace brand + link", () => {
   assert.equal(out, "Brand Lokal X mantap. link 👇 https://x.test/go");
 });
 
-test("resolveLink: gabung UTM suffix", () => {
+test("resolveLink: pakai Link Affiliate apa adanya (tanpa UTM)", () => {
   assert.equal(
-    resolveLink({ "Link Affiliate": "https://x.test/p", "UTM Link Affiliate": "?utm_source=threads" }),
-    "https://x.test/p?utm_source=threads"
+    resolveLink({ "Link Affiliate": "https://shopee.co.id/product/123/456" }),
+    "https://shopee.co.id/product/123/456"
   );
-  assert.equal(
-    resolveLink({ "Link Affiliate": "https://x.test/p?a=1", "UTM Link Affiliate": "?utm_source=threads" }),
-    "https://x.test/p?a=1&utm_source=threads"
-  );
-  assert.equal(
-    resolveLink({ "Link Affiliate": "https://x.test/p", "UTM Link Affiliate": "https://short.test/xyz" }),
-    "https://short.test/xyz"
-  );
+  assert.equal(resolveLink({ "Link Affiliate": "  https://s.shopee.co.id/abc  " }), "https://s.shopee.co.id/abc");
+  assert.equal(resolveLink({}), "");
 });

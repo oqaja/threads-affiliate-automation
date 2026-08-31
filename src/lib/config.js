@@ -37,7 +37,6 @@ const CONFIG = {
     BRAND_REF: "Brand Referensi",
     JAM: "Jam Threads", // HH:MM (WIB) - jam paling awal Utas 1 boleh keluar; kosong = langsung
     LINK: "Link Affiliate",
-    UTM: "UTM Link Affiliate",
     STATUS: "STATUS THREADS",
     JEDA_UTAS2: "Jeda Utas 2 (menit)",
     POST_ID_1: "POST ID Utas 1",
