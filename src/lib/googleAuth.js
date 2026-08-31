@@ -1,9 +1,17 @@
+const fs = require("fs");
 const { google } = require("googleapis");
 
 function getServiceAccountCredentials() {
+  // CI: JSON inline di env. Lokal: path ke file JSON via GOOGLE_SERVICE_ACCOUNT_KEY_FILE.
+  const file = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+  if (file) {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  }
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (!raw) {
-    throw new Error("Environment variable 'GOOGLE_SERVICE_ACCOUNT_KEY' belum di-set.");
+    throw new Error(
+      "Set GOOGLE_SERVICE_ACCOUNT_KEY (JSON inline) atau GOOGLE_SERVICE_ACCOUNT_KEY_FILE (path ke file JSON)."
+    );
   }
   return JSON.parse(raw);
 }
@@ -26,4 +34,12 @@ async function getGoogleAuthClients() {
   };
 }
 
-module.exports = { getGoogleAuthClients };
+function getServiceAccountEmail() {
+  try {
+    return getServiceAccountCredentials().client_email || "(unknown)";
+  } catch {
+    return "(unknown)";
+  }
+}
+
+module.exports = { getGoogleAuthClients, getServiceAccountEmail };

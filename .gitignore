@@ -1,4 +1,14 @@
 node_modules/
 .env
+.env.*
+!.env.example
 .DS_Store
 *.log
+
+# Google service account keys — JANGAN pernah commit
+*service-account*.json
+*service_account*.json
+threads-affiliate-personal-*.json
+*-*[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+gcp-*.json
+credentials*.json

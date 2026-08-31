@@ -8,10 +8,11 @@
     "node": ">=20"
   },
   "scripts": {
-    "sync": "node scripts/run-sync.js",
-    "publish": "node scripts/run-publish.js",
-    "insights": "node scripts/run-insights.js",
-    "get-token": "node scripts/get-threads-token.js",
+    "check": "node --env-file-if-exists=.env scripts/check-setup.js",
+    "sync": "node --env-file-if-exists=.env scripts/run-sync.js",
+    "publish": "node --env-file-if-exists=.env scripts/run-publish.js",
+    "insights": "node --env-file-if-exists=.env scripts/run-insights.js",
+    "get-token": "node --env-file-if-exists=.env scripts/get-threads-token.js",
     "test": "node --test"
   },
   "dependencies": {

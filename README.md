@@ -66,12 +66,18 @@ Scope token yang dibutuhkan: `threads_basic`, `threads_content_publish`, `thread
 
 ### 3. Lokal
 ```bash
-cp .env.example .env      # isi semua nilai
+cp .env.example .env       # isi semua nilai
 npm install
-npm run sync              # Docs → Sheet
-npm run publish           # sync + jalankan state machine
+npm run check              # preflight: cek semua koneksi, TIDAK nge-post apa pun
+DRY_RUN=1 npm run publish  # simulasi penuh — log apa yang AKAN diposting, tanpa nulis/post
+npm run publish            # beneran: sync + state machine
 npm run insights
 ```
+
+`npm run check` memvalidasi: creds service account, baca Doc + parse blok, baca/tulis
+Sheet, akses folder Drive + status sharing publik, token Threads (`/me`), dan cross-check
+Doc ↔ Sheet ↔ Drive per konten. `DRY_RUN=1` mem-bypass semua tulisan ke Sheet dan semua
+call publish ke Threads (insights tetap jalan, read-only).
 
 ### 4. GitHub Actions
 Set repo secrets:

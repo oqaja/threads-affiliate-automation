@@ -51,6 +51,33 @@ function makeClient({ userId, accessToken }) {
   }
   const auth = { access_token: accessToken };
 
+  const { isDryRun } = require("./env");
+  if (isDryRun()) {
+    let n = 0;
+    return {
+      async createContainer(o) {
+        n++;
+        const kind = o.children ? `CAROUSEL(${o.children.length})` : o.mediaType + (o.imageUrl ? "+img" : "");
+        console.log(
+          `    [DRY] createContainer #${n} ${kind}${o.replyToId ? ` reply→${o.replyToId}` : ""}` +
+            (o.text ? `\n          text: ${JSON.stringify(o.text.slice(0, 120))}${o.text.length > 120 ? "…" : ""}` : "")
+        );
+        return `DRY-CONTAINER-${n}`;
+      },
+      async getContainerStatus() {
+        return { status: "FINISHED" };
+      },
+      async waitUntilFinished() {},
+      async publishContainer(id) {
+        console.log(`    [DRY] publish ${id}`);
+        return `DRY-MEDIA-${id.replace("DRY-CONTAINER-", "")}`;
+      },
+      async getMediaInsights() {
+        return {};
+      },
+    };
+  }
+
   return {
     /**
      * Buat media container.

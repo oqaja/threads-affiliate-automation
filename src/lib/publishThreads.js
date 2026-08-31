@@ -17,6 +17,7 @@ const { parseContentDoc } = require("./docsReader");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue } = require("./sheetsHelper");
 const { combineDateAndTime } = require("./dateUtils");
 const { findImagesForTitle } = require("./driveFinder");
+const { isDryRun } = require("./env");
 
 const C = CONFIG.COL;
 const S = CONFIG.STATUS;
@@ -70,6 +71,10 @@ function minutesSince(iso) {
 
 async function write(sheets, headerMap, rowNumber, col, value) {
   if (!headerMap[col]) return;
+  if (isDryRun()) {
+    console.log(`    [DRY] Sheet r${rowNumber} "${col}" = ${JSON.stringify(String(value).slice(0, 80))}`);
+    return;
+  }
   await setCellValue(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, rowNumber, headerMap[col], value);
 }
 

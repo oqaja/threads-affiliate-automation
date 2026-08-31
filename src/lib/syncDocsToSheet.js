@@ -20,6 +20,8 @@ const {
   appendRow,
 } = require("./sheetsHelper");
 
+const { isDryRun } = require("./env");
+
 const C = CONFIG.COL;
 
 const SHEET_HEADERS = [
@@ -55,7 +57,10 @@ async function runSync({ sheets, docs }) {
     return { appended: 0, updated: 0 };
   }
 
-  await ensureSheetWithHeaders(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, SHEET_HEADERS);
+  const dry = isDryRun();
+  if (!dry) {
+    await ensureSheetWithHeaders(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, SHEET_HEADERS);
+  }
   const headerMap = await getHeaderColumnMap(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
   const { rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
 
@@ -73,9 +78,10 @@ async function runSync({ sheets, docs }) {
         const field = SYNC_MAP[h];
         return field ? b[field] || "" : "";
       });
-      await appendRow(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, rowValues);
+      if (dry) console.log(`  [DRY] + append: ${b.judul} → ${JSON.stringify(rowValues.filter(Boolean))}`);
+      else await appendRow(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, rowValues);
       appended++;
-      console.log(`  + append: ${b.judul}`);
+      if (!dry) console.log(`  + append: ${b.judul}`);
       continue;
     }
 
@@ -85,14 +91,18 @@ async function runSync({ sheets, docs }) {
       const newVal = String(b[field] || "").trim();
       const oldVal = String(existing[col] || "").trim();
       if (newVal !== "" && newVal !== oldVal && headerMap[col]) {
-        await setCellValue(
-          sheets,
-          CONFIG.TRACKER_SPREADSHEET_ID,
-          CONFIG.SHEET_NAME,
-          existing._rowNumber,
-          headerMap[col],
-          newVal
-        );
+        if (dry) {
+          console.log(`  [DRY] ~ r${existing._rowNumber} "${col}": ${JSON.stringify(oldVal)} → ${JSON.stringify(newVal)}`);
+        } else {
+          await setCellValue(
+            sheets,
+            CONFIG.TRACKER_SPREADSHEET_ID,
+            CONFIG.SHEET_NAME,
+            existing._rowNumber,
+            headerMap[col],
+            newVal
+          );
+        }
         changedFields++;
       }
     }
