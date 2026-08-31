@@ -71,6 +71,14 @@ const warn = (m) => console.log(`  ! ${m}`);
     const meta = await sheets.spreadsheets.get({ spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID });
     const tabs = (meta.data.sheets || []).map((s) => s.properties.title);
     console.log(`      tab yang ada: ${tabs.map((t) => `"${t}"`).join(", ")}`);
+    for (const t of tabs) {
+      const r = await sheets.spreadsheets.values.get({
+        spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID,
+        range: `'${t}'!A1:Z3`,
+      });
+      const grid = r.data.values || [];
+      grid.forEach((row, i) => console.log(`      "${t}" row ${i + 1}: ${JSON.stringify(row)}`));
+    }
     if (!tabs.includes(CONFIG.SHEET_NAME)) {
       warn(`Tab "${CONFIG.SHEET_NAME}" belum ada — akan dibuat otomatis + header saat "npm run sync" pertama.`);
     }
