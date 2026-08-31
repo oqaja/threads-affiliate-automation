@@ -5,23 +5,27 @@
  * variable supaya tidak perlu commit ID asli ke repo publik.
  */
 
-function envOr(name, fallback) {
-  const v = process.env[name];
-  return v && String(v).trim() !== "" ? String(v).trim() : fallback;
+/** Ambil env pertama yang keisi dari daftar nama (alias didukung), atau fallback. */
+function envOr(names, fallback) {
+  for (const name of Array.isArray(names) ? names : [names]) {
+    const v = process.env[name];
+    if (v && String(v).trim() !== "") return String(v).trim();
+  }
+  return fallback;
 }
 
 const CONFIG = {
-  // --- Sumber data ---
+  // --- Sumber data (nama env pendek didukung sebagai alias) ---
   // Google Doc = sumber utama konten + metadata (Pilar, Brand, Link, isi utas).
-  CONTENT_DOC_ID: envOr("THREADS_CONTENT_DOC_ID", ""),
+  CONTENT_DOC_ID: envOr(["THREADS_CONTENT_DOC_ID", "DOC_ID"], ""),
 
   // Google Sheet = tracker approval + operasional + hasil publish/insights.
-  TRACKER_SPREADSHEET_ID: envOr("THREADS_TRACKER_SPREADSHEET_ID", ""),
-  SHEET_NAME: envOr("THREADS_SHEET_NAME", "Threads Affiliate"),
+  TRACKER_SPREADSHEET_ID: envOr(["THREADS_TRACKER_SPREADSHEET_ID", "SHEET_ID"], ""),
+  SHEET_NAME: envOr(["THREADS_SHEET_NAME", "SHEET_NAME"], "Threads Affiliate"),
 
   // Folder Drive berisi gambar. Nama file: "<Judul Konten> 1.jpg", "<Judul Konten> 2.jpg", dst.
   // Folder ini HARUS di-share "anyone with the link can view" supaya Threads API bisa fetch gambarnya.
-  DRIVE_IMAGE_FOLDER_ID: envOr("THREADS_DRIVE_IMAGE_FOLDER_ID", ""),
+  DRIVE_IMAGE_FOLDER_ID: envOr(["THREADS_DRIVE_IMAGE_FOLDER_ID", "DRIVE_FOLDER_ID"], ""),
 
   // --- Kolom Sheet (harus sama persis dengan header di baris 1) ---
   COL: {
@@ -85,9 +89,9 @@ function getSecret(name) {
 
 function assertCoreConfig() {
   const missing = [];
-  if (!CONFIG.CONTENT_DOC_ID) missing.push("THREADS_CONTENT_DOC_ID");
-  if (!CONFIG.TRACKER_SPREADSHEET_ID) missing.push("THREADS_TRACKER_SPREADSHEET_ID");
-  if (!CONFIG.DRIVE_IMAGE_FOLDER_ID) missing.push("THREADS_DRIVE_IMAGE_FOLDER_ID");
+  if (!CONFIG.CONTENT_DOC_ID) missing.push("DOC_ID / THREADS_CONTENT_DOC_ID");
+  if (!CONFIG.TRACKER_SPREADSHEET_ID) missing.push("SHEET_ID / THREADS_TRACKER_SPREADSHEET_ID");
+  if (!CONFIG.DRIVE_IMAGE_FOLDER_ID) missing.push("DRIVE_FOLDER_ID / THREADS_DRIVE_IMAGE_FOLDER_ID");
   if (missing.length) {
     throw new Error(`Config belum lengkap, environment variable berikut kosong: ${missing.join(", ")}`);
   }

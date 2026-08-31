@@ -2,18 +2,29 @@ const fs = require("fs");
 const { google } = require("googleapis");
 
 function getServiceAccountCredentials() {
-  // CI: JSON inline di env. Lokal: path ke file JSON via GOOGLE_SERVICE_ACCOUNT_KEY_FILE.
+  // Urutan: (1) file JSON lokal, (2) JSON inline, (3) pasangan email + private key.
   const file = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
   if (file) {
     return JSON.parse(fs.readFileSync(file, "utf8"));
   }
+
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
-  if (!raw) {
-    throw new Error(
-      "Set GOOGLE_SERVICE_ACCOUNT_KEY (JSON inline) atau GOOGLE_SERVICE_ACCOUNT_KEY_FILE (path ke file JSON)."
-    );
+  if (raw && raw.trim().startsWith("{")) {
+    return JSON.parse(raw);
   }
-  return JSON.parse(raw);
+
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  if (email && privateKey) {
+    // GitHub Secrets sering nyimpen "\n" literal — normalkan jadi newline asli.
+    if (privateKey.includes("\\n")) privateKey = privateKey.replace(/\\n/g, "\n");
+    return { client_email: email, private_key: privateKey };
+  }
+
+  throw new Error(
+    "Kredensial Google tidak ditemukan. Set salah satu: GOOGLE_SERVICE_ACCOUNT_KEY_FILE (path), " +
+      "GOOGLE_SERVICE_ACCOUNT_KEY (JSON inline), atau GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY."
+  );
 }
 
 async function getGoogleAuthClients() {

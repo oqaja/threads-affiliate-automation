@@ -1,7 +1,8 @@
 name: Threads Affiliate - Insights
 on:
-  schedule:
-    - cron: '17 */3 * * *'
+  # Aktifkan lagi setelah 1x manual run sukses:
+  # schedule:
+  #   - cron: '17 */3 * * *'
   workflow_dispatch:
 concurrency:
   group: threads-affiliate-insights
@@ -19,10 +20,12 @@ jobs:
       - run: npm ci
       - run: npm run insights
         env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
           GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.THREADS_GOOGLE_SERVICE_ACCOUNT_KEY }}
-          THREADS_CONTENT_DOC_ID: ${{ secrets.THREADS_CONTENT_DOC_ID }}
-          THREADS_TRACKER_SPREADSHEET_ID: ${{ secrets.THREADS_TRACKER_SPREADSHEET_ID }}
-          THREADS_DRIVE_IMAGE_FOLDER_ID: ${{ secrets.THREADS_DRIVE_IMAGE_FOLDER_ID }}
+          DOC_ID: ${{ secrets.DOC_ID }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           THREADS_SHEET_NAME: ${{ secrets.THREADS_SHEET_NAME }}
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
           THREADS_ACCESS_TOKEN: ${{ secrets.THREADS_ACCESS_TOKEN }}

@@ -80,24 +80,31 @@ Doc ↔ Sheet ↔ Drive per konten. `DRY_RUN=1` mem-bypass semua tulisan ke Shee
 call publish ke Threads (insights tetap jalan, read-only).
 
 ### 4. GitHub Actions
-Set repo secrets:
+Repo secrets (nama yang dipakai sekarang):
 
 | Secret | Isi |
 |---|---|
-| `THREADS_GOOGLE_SERVICE_ACCOUNT_KEY` | JSON service account (satu baris) |
-| `THREADS_CONTENT_DOC_ID` | ID Google Doc |
-| `THREADS_TRACKER_SPREADSHEET_ID` | ID Google Sheet |
-| `THREADS_DRIVE_IMAGE_FOLDER_ID` | ID folder Drive gambar |
-| `THREADS_SHEET_NAME` | `Threads Affiliate` |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` dari JSON service account |
+| `GOOGLE_PRIVATE_KEY` | `private_key` dari JSON (boleh dengan `\n` literal) |
+| `DOC_ID` | ID Google Doc |
+| `SHEET_ID` | ID Google Sheet |
+| `DRIVE_FOLDER_ID` | ID folder Drive gambar |
 | `THREADS_USER_ID` | dari `npm run get-token` |
 | `THREADS_ACCESS_TOKEN` | long-lived token |
-| `SECRETS_WRITE_PAT` | PAT (fine-grained, **Secrets: read/write** di repo ini) — buat nulis balik token yang di-refresh |
+| `THREADS_APP_SECRET` | app secret Meta (opsional, buat re-exchange manual) |
+| `SECRETS_WRITE_PAT` | *(opsional)* PAT fine-grained, **Secrets: read/write** di repo ini — biar token hasil refresh ke-simpan otomatis. Tanpa ini, refresh ulang `THREADS_ACCESS_TOKEN` manual tiap < 60 hari. |
+| `THREADS_SHEET_NAME` | *(opsional)* default `Threads Affiliate` |
 
-Workflow:
-- `.github/workflows/threads-publish.yml` — sync + publish, tiap 15 menit
-- `.github/workflows/threads-insights.yml` — insights, tiap 3 jam
+> Kode juga masih nerima nama panjang lama (`THREADS_CONTENT_DOC_ID`, dll) dan
+> `GOOGLE_SERVICE_ACCOUNT_KEY` (JSON inline) sebagai alternatif.
 
-Keduanya bisa dijalankan manual via **Run workflow**.
+Workflow (semua **manual** dulu — `schedule` di-comment sampai 1x run sukses):
+- `threads-check.yml` — preflight, aman, tidak nge-post
+- `threads-publish.yml` — sync + publish; input `dry_run` (default **true**)
+- `threads-insights.yml` — insights
+
+Jalanin dari tab **Actions → pilih workflow → Run workflow**. Setelah publish sukses
+sekali (dry-run lalu beneran), un-comment blok `schedule:` di kedua workflow.
 
 ## Test
 
