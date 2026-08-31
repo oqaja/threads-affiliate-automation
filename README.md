@@ -20,23 +20,33 @@ Sheet: Views Utas 1/2, Reply Rate (%)
 **Google Doc format** (`docs/Template_Konten_Threads_Affiliate_v2.docx` sebagai acuan):
 
 ```
-Weidenmann - Sepatu Kulit Handmade
+Judul Konten | Weidenmann - Commuting Harian
+Pilar | Cerita Personal
+Brand/Produk | Weidenmann Urban x Willy Winarko Hinterhalt 02
+Link Affiliate | https://s.shopee.co.id/gPi35xU8y
+Jam Threads | 19:00
 --- UTAS 1 (Hook) ---
 <teks hook, tutup dengan cliffhanger>
 --- UTAS 2 (Produk) ---
 <teks produk, pakai [Brand/Produk], TANPA link>
 --- REPLY (Link) ---
-link pembelian 👇 [Link Affiliate]
+Link pembelian: [Link Affiliate]
 ==================================================
-Weidenmann - Belt Kulit Nabati
---- UTAS 1 (Hook) ---
+Judul Konten | Weidenmann - Harga vs Value XT-6
 ...
 ```
 
-- Antar blok dipisah baris pemisah (≥6 karakter `=` / `-`, mis. `====…`).
-- Judul blok = baris tepat sebelum `--- UTAS 1 (Hook) ---` (boleh juga ditulis
-  `JUDUL: xxx`). Harus **sama persis** dengan `Judul Konten` di Sheet.
+- Antar blok dipisah baris pemisah (≥6 karakter `=`/`-`, mis. `====…`).
+- Judul blok dari baris `Judul Konten | xxx` (atau `JUDUL: xxx`, atau baris polos
+  tepat sebelum `--- UTAS 1 ---`). Harus **sama persis** dengan `Judul Konten` di Sheet.
+- Baris metadata lain (`Pilar | …`, `Brand/Produk | …`, dst) **diabaikan parser** —
+  script baca metadata dari Sheet, bukan Doc. (Doc metadata cuma referensi.)
 - Baris yang isinya seluruhnya `[...]` (instruksi template) dibuang otomatis.
+
+Kolom Sheet (tab **"JADWAL THREADS"**, header **baris 1**, urutan tetap):
+`Judul Konten · Pilar · Brand/Produk · Brand Referensi · Jam Threads · Link Affiliate ·
+STATUS THREADS · Jeda Utas 2 (menit) · POST ID Utas 1 · POST ID Utas 2 · POST ID Reply Link ·
+Views Utas 1 · Views Utas 2 · Reply Rate (%) · Catatan`
 
 ## State machine (kolom `STATUS THREADS`)
 

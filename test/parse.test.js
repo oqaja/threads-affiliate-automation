@@ -15,93 +15,63 @@ function fakeDoc(lines) {
   };
 }
 
-const SAMPLE = [
-  "Template Konten Threads Affiliate",
+const EQ = "=".repeat(50);
+
+// Format Doc "BRIEF THREADS" yang asli: metadata "Key | Value", judul "Judul Konten | X",
+// blok dipisah baris "====", section pakai "--- UTAS 1/2 ---" / "--- REPLY ---".
+const REAL_FORMAT = [
+  "# Template Konten Threads Affiliate",
   "Legend: biru = ... kuning = ...",
-  "ISI KONTEN",
+  "Judul Konten | [matching key - sama persis dengan Sheets]",
+  "Pilar | [Cerita Personal / Myth-busting]",
   "--- UTAS 1 (Hook) ---",
   "[Isi teks hook di sini.]",
   "--- UTAS 2 (Produk) ---",
   "[Isi teks produk di sini.]",
   "--- REPLY (Link) ---",
   "[Link affiliate + CTA]",
-  "— akhir 1 blok konten, mulai blok baru di bawah —",
-  'CONTOH TERISI — "Samba Look Lokal Ver"',
-  "--- UTAS 1 (Hook) ---",
-  "Semua orang ngejar Adidas Samba tahun ini.",
-  "Padahal yang bikin orang suka itu siluetnya.",
-  "--- UTAS 2 (Produk) ---",
-  "[Brand/Produk] ini yang gue maksud. Siluet low-profile khas terrace sneaker.",
-  '[script otomatis replace "[Brand/Produk]" pakai isi field Brand/Produk di atas]',
-  "--- REPLY (Link) ---",
-  "Buat yang mau nyobain look Samba tanpa drama restock — link pembelian 👇 [Link Affiliate]",
   "— akhir 1 blok konten —",
-  "JUDUL: New Balance Lokal Rasa 550",
+  EQ,
+  "Judul Konten | Weidenmann - Commuting Harian",
+  "Pilar | Cerita Personal",
+  "Brand/Produk | Weidenmann Urban x Willy Winarko Hinterhalt 02",
+  "Brand Referensi | Salomon XT-6",
+  "Link Affiliate | https://s.shopee.co.id/gPi35xU8y",
+  "Jam Threads | 19:00",
+  "Catatan Angle | Jujur soal kekurangan",
   "--- UTAS 1 (Hook) ---",
-  "Hype 550 lagi kenceng.",
+  "Gue pake sepatu ini buat commuting tiap hari.",
+  "Ternyata jadi paling sering dipake.",
   "--- UTAS 2 (Produk) ---",
-  "[Brand/Produk] punya siluet basket mirip.",
+  "Agak panas dikit, tapi grip-nya juara. [Brand/Produk], based on real pengalaman.",
   "--- REPLY (Link) ---",
-  "cek 👇 [Link Affiliate]",
+  "Link pembelian: [Link Affiliate]",
+  EQ,
+  "Judul Konten | Weidenmann - Harga vs Value XT-6",
+  "Pilar | Myth-busting",
+  "--- UTAS 1 (Hook) ---",
+  "Orang bilang mahal = bagus. Belum tentu.",
+  "--- UTAS 2 (Produk) ---",
+  "[Brand/Produk] harganya sepertiga, performa 90%.",
+  "--- REPLY (Link) ---",
+  "beli di sini: [Link Affiliate]",
 ];
 
-test("parseContentDoc: fallback heading + JUDUL:, buang blok placeholder", () => {
-  const blocks = parseContentDoc(fakeDoc(SAMPLE));
-  assert.equal(blocks.length, 2);
-
-  assert.equal(blocks[0].judul, "Samba Look Lokal Ver");
-  assert.match(blocks[0].utas1, /Semua orang ngejar Adidas Samba/);
-  assert.match(blocks[0].utas1, /Padahal yang bikin orang suka/);
-  assert.match(blocks[0].utas2, /\[Brand\/Produk\] ini yang gue maksud/);
-  assert.match(blocks[0].reply, /\[Link Affiliate\]/);
-
-  assert.equal(blocks[1].judul, "New Balance Lokal Rasa 550");
-  assert.equal(blocks[1].utas1, "Hype 550 lagi kenceng.");
-});
-
-const EQ = "=".repeat(50);
-const REAL_FORMAT = [
-  "BRIEF THREADS",
-  "Weidenmann - Sepatu Kulit Handmade",
-  "--- UTAS 1 (Hook) ---",
-  "Sepatu lo bau? Bukan salah kaki.",
-  "Ini soal bahan.",
-  "--- UTAS 2 (Produk) ---",
-  "[Brand/Produk] pakai kulit full-grain yang breathable.",
-  "--- REPLY (Link) ---",
-  "cek di sini 👇 [Link Affiliate]",
-  EQ,
-  "Weidenmann - Belt Kulit Nabati",
-  "--- UTAS 1 (Hook) ---",
-  "Belt murah retak dalam sebulan.",
-  "--- UTAS 2 (Produk) ---",
-  "[Brand/Produk] samak nabati, makin lama makin patina.",
-  "--- REPLY (Link) ---",
-  "link 👇 [Link Affiliate]",
-  EQ,
-  "JUDUL: Weidenmann - Dompet Kartu",
-  "--- UTAS 1 (Hook) ---",
-  "Dompet tebal itu red flag.",
-  "--- UTAS 2 (Produk) ---",
-  "[Brand/Produk] slim, muat 6 kartu.",
-  "--- REPLY (Link) ---",
-  "👇 [Link Affiliate]",
-];
-
-test("parseContentDoc: format asli (heading + ==== separator + JUDUL:)", () => {
+test("parseContentDoc: format asli (Judul Konten | X, metadata Key|Value, ==== separator)", () => {
   const blocks = parseContentDoc(fakeDoc(REAL_FORMAT));
-  assert.equal(blocks.length, 3);
+  assert.equal(blocks.length, 2); // blok template placeholder ke-drop
   assert.deepEqual(
     blocks.map((b) => b.judul),
-    ["Weidenmann - Sepatu Kulit Handmade", "Weidenmann - Belt Kulit Nabati", "Weidenmann - Dompet Kartu"]
+    ["Weidenmann - Commuting Harian", "Weidenmann - Harga vs Value XT-6"]
   );
-  // paragraf terpisah -> dipisah baris kosong (bagus buat Threads)
-  assert.equal(blocks[0].utas1, "Sepatu lo bau? Bukan salah kaki.\n\nIni soal bahan.");
-  assert.match(blocks[0].reply, /\[Link Affiliate\]$/);
-  assert.equal(blocks[1].utas1, "Belt murah retak dalam sebulan.");
-  // separator "====" tidak boleh nyangkut di teks reply
+  assert.equal(
+    blocks[0].utas1,
+    "Gue pake sepatu ini buat commuting tiap hari.\n\nTernyata jadi paling sering dipake."
+  );
+  assert.match(blocks[0].utas2, /\[Brand\/Produk\], based on real pengalaman\.$/);
+  assert.equal(blocks[0].reply, "Link pembelian: [Link Affiliate]");
   assert.ok(!blocks[0].reply.includes("="));
-  assert.ok(!blocks[1].reply.includes("="));
+  assert.ok(!blocks[0].utas1.includes("Pilar |"));
 });
 
 test("stripInstructionLines: buang baris kurung siku penuh (termasuk bersarang), simpan yang inline", () => {
@@ -114,12 +84,12 @@ test("stripInstructionLines: buang baris kurung siku penuh (termasuk bersarang),
   assert.equal(nested, "Teks produk asli.");
 });
 
-test("applyPlaceholders: replace brand + link", () => {
-  const out = applyPlaceholders("[Brand/Produk] mantap. link 👇 [Link Affiliate]\n[instruksi]", {
+test("applyPlaceholders: replace brand + link, buang baris instruksi", () => {
+  const out = applyPlaceholders("[Brand/Produk] mantap. link: [Link Affiliate]\n[instruksi]", {
     brand: "Brand Lokal X",
-    link: "https://x.test/go",
+    link: "https://s.shopee.co.id/abc",
   });
-  assert.equal(out, "Brand Lokal X mantap. link 👇 https://x.test/go");
+  assert.equal(out, "Brand Lokal X mantap. link: https://s.shopee.co.id/abc");
 });
 
 test("resolveLink: pakai Link Affiliate apa adanya (tanpa UTM)", () => {

@@ -24,7 +24,11 @@ const SECTION_MARKERS = [
   { test: /^-{2,}\s*reply\b/i, key: "reply" },
 ];
 
-const JUDUL_RE = /^\s*judul\s*[:\-]\s*(.+?)\s*$/i;
+// "Judul Konten | Weidenmann - X"  /  "JUDUL: X"  /  "Judul | X"
+const JUDUL_RE = /^\s*(?:judul konten|judul)\s*[|:]\s*(.+?)\s*$/i;
+
+// Baris metadata "Key | Value" (Pilar | ..., Brand/Produk | ..., dst) — bukan judul, bukan konten.
+const META_LINE_RE = /^\s*[A-Za-z][\w /().-]{0,40}\s*\|\s*\S/;
 
 function matchSectionMarker(line) {
   for (const m of SECTION_MARKERS) if (m.test.test(line.trim())) return m.key;
@@ -126,6 +130,8 @@ function parseContentDoc(doc) {
       continue;
     }
 
+    // Di luar section: baris metadata "Key | Value" diabaikan (bukan judul).
+    if (META_LINE_RE.test(line)) continue;
     if (!isInstructionOnly(line)) lastHeading = line;
   }
 
