@@ -17,3 +17,5 @@ threads-affiliate-personal-*.json
 *-*[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
 gcp-*.json
 credentials*.json
+
+.claude/
