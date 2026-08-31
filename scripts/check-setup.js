@@ -86,30 +86,35 @@ const warn = (m) => console.log(`  ! ${m}`);
     bad(`Gagal baca metadata spreadsheet: ${e.message}`);
   }
   try {
-    const { headers, rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
+    const { headers, rows } = await readSheetAsObjects(
+      sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
+    );
     sheetRows = rows;
-    ok(`Baca tab "${CONFIG.SHEET_NAME}" — ${rows.length} baris data`);
-    const need = [C.JUDUL, C.STATUS, C.LINK, C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY];
+    ok(`Baca tab "${CONFIG.SHEET_NAME}" (header baris ${CONFIG.HEADER_ROW}) — ${rows.length} baris data`);
+    const need = [C.JUDUL, C.STATUS, C.LINK, C.JEDA_UTAS2, C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY, C.VIEWS_1];
     const missing = need.filter((h) => !headers.includes(h));
-    if (missing.length) bad(`Header kurang: ${missing.join(", ")}`);
+    if (missing.length) bad(`Header kurang di baris ${CONFIG.HEADER_ROW}: ${missing.join(", ")}`);
     else ok("Header inti lengkap");
-    try {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID,
-        range: `'${CONFIG.SHEET_NAME}'!A1`,
-        valueInputOption: "USER_ENTERED",
-        requestBody: { values: [[headers[0] || C.JUDUL]] },
-      });
-      ok("Tes tulis ke Sheet berhasil (service account = Editor)");
-    } catch (e) {
-      bad(`Tidak bisa tulis ke Sheet — share tracker ke ${getServiceAccountEmail()} sebagai Editor. (${e.message})`);
+
+    // Tes tulis: tulis balik nilai header JUDUL ke sel-nya sendiri (tidak mengubah apa pun).
+    const { columnNumberToLetter } = require("../src/lib/sheetsHelper");
+    const judulCol = headers.indexOf(C.JUDUL) + 1;
+    if (judulCol > 0) {
+      try {
+        const cell = `${columnNumberToLetter(judulCol)}${CONFIG.HEADER_ROW}`;
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID,
+          range: `'${CONFIG.SHEET_NAME}'!${cell}`,
+          valueInputOption: "USER_ENTERED",
+          requestBody: { values: [[C.JUDUL]] },
+        });
+        ok("Tes tulis ke Sheet berhasil (service account = Editor)");
+      } catch (e) {
+        bad(`Tidak bisa tulis ke Sheet — share tracker ke ${getServiceAccountEmail()} sebagai Editor. (${e.message})`);
+      }
     }
   } catch (e) {
-    if (/Unable to parse range/i.test(e.message)) {
-      warn(`Tab "${CONFIG.SHEET_NAME}" belum ada — bukan masalah, "npm run sync" bikin otomatis. (tes tulis dilewati)`);
-    } else {
-      bad(`Gagal baca Sheet (tab "${CONFIG.SHEET_NAME}"): ${e.message}`);
-    }
+    bad(`Gagal baca Sheet (tab "${CONFIG.SHEET_NAME}"): ${e.message}`);
   }
 
   // 4. Drive

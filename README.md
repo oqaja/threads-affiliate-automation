@@ -3,31 +3,46 @@
 Automasi konten affiliate di **Threads**, personal use. Alurnya:
 
 ```
-Google Doc (sumber utama konten + metadata)
-        │  scripts/run-sync.js  (Docs → Sheet, match by "Judul Konten")
+Google Doc  = TEKS konten saja, per blok "JUDUL:" + 3 section
+        │  scripts/run-sync.js  →  pastikan tiap JUDUL punya baris di Sheet
         ▼
-Google Sheet "Threads Affiliate" (approval + operasional + hasil)
-        │  scripts/run-publish.js  (state machine, cron tiap 15 menit)
+Google Sheet tab "Tracker Threads Affiliate"  (header di BARIS 3)
+   = metadata (Pilar/Brand/Link/Jam) diisi MANUAL + approval + hasil
+        │  scripts/run-publish.js  (state machine)
         ▼
 Threads  →  3 post berantai:
-        Utas 1 (hook, text)  ──reply──▶  Utas 2 (produk + gambar dari Drive)  ──reply──▶  Reply (link affiliate)
-        │  scripts/run-insights.js  (cron tiap 3 jam)
+   Utas 1 (hook, text)  ──reply──▶  Utas 2 (produk + gambar Drive)  ──reply──▶  Reply (link affiliate)
+        │  scripts/run-insights.js
         ▼
 Sheet: Views Utas 1/2, Reply Rate (%)
 ```
 
-Template sumbernya: `Template_Konten_Threads_Affiliate_v2.docx` + `Tracker_Threads_Affiliate_v2.xlsx`.
+**Google Doc format** (`docs/Template_Konten_Threads_Affiliate_v2.docx` sebagai acuan):
+
+```
+JUDUL: Samba Look Lokal Ver
+--- UTAS 1 (Hook) ---
+<teks hook, tutup dengan cliffhanger>
+--- UTAS 2 (Produk) ---
+<teks produk, pakai [Brand/Produk], TANPA link>
+--- REPLY (Link) ---
+link pembelian 👇 [Link Affiliate]
+```
+
+`JUDUL:` harus sama persis dengan `Judul Konten` di Sheet. (Tanpa baris `JUDUL:`,
+judul diambil dari heading terakhir sebelum `--- UTAS 1 ---`, mis. `CONTOH TERISI — "..."`.)
 
 ## State machine (kolom `STATUS THREADS`)
 
 | STATUS | Aksi script | STATUS berikutnya |
 |---|---|---|
-| `Acc` (diisi manual setelah approval) | post Utas 1 (kalau `Jam Threads`/`Tanggal Upload` sudah lewat) | `Utas 1 Posted` |
-| `Utas 1 Posted` | tunggu `Jeda Utas 2 (menit)`, lalu post Utas 2 (reply ke Utas 1, + gambar) | `Utas 2 Posted` |
+| `Acc` (diisi manual setelah approval) | post Utas 1 (kalau jam sekarang ≥ `Jam Threads` WIB; kosong = langsung) | `Utas 1 Posted` |
+| `Utas 1 Posted` | tunggu `Jeda Utas 2 (menit)` sejak Utas 1, lalu post Utas 2 (reply ke Utas 1, + gambar) | `Utas 2 Posted` |
 | `Utas 2 Posted` | post Reply link (reply ke Utas 2) | `Published` |
 | error di step mana pun | tulis pesan ke `Catatan` | `Gagal` |
 
-Jeda antar-utas dihitung dari timestamp (`TS Utas 1`), bukan `sleep`, jadi aman walau GitHub Actions jalan per 15 menit.
+Jeda antar-utas dihitung dari `timestamp` post Utas 1 (diambil dari Threads API),
+bukan `sleep` — aman walau GitHub Actions jalan per 15 menit. Default jeda 15 menit.
 
 ## Placeholder yang di-replace otomatis saat publish
 

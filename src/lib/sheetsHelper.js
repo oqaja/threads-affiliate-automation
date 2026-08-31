@@ -50,7 +50,7 @@ function invalidateSheetMetaCache(spreadsheetId, sheetName) {
   sheetIdCache.delete(`${spreadsheetId}::${sheetName}`);
 }
 
-async function readSheetAsObjects(sheets, spreadsheetId, sheetName) {
+async function readSheetAsObjects(sheets, spreadsheetId, sheetName, headerRow = 1) {
   const res = await withRateLimitRetry(
     () =>
       sheets.spreadsheets.values.get({
@@ -63,12 +63,13 @@ async function readSheetAsObjects(sheets, spreadsheetId, sheetName) {
   );
 
   const data = res.data.values || [];
-  if (data.length < 1) return { headers: [], rows: [] };
+  const hIdx = headerRow - 1;
+  if (data.length <= hIdx) return { headers: [], rows: [] };
 
-  const headers = data[0].map((h) => String(h || "").trim());
+  const headers = (data[hIdx] || []).map((h) => String(h || "").trim());
   const rows = [];
 
-  for (let i = 1; i < data.length; i++) {
+  for (let i = hIdx + 1; i < data.length; i++) {
     const rawRow = data[i] || [];
     const rowObj = {};
     for (let j = 0; j < headers.length; j++) {
@@ -83,17 +84,17 @@ async function readSheetAsObjects(sheets, spreadsheetId, sheetName) {
 
 const headerMapCache = new Map();
 
-async function getHeaderColumnMap(sheets, spreadsheetId, sheetName) {
-  const cacheKey = `${spreadsheetId}::${sheetName}`;
+async function getHeaderColumnMap(sheets, spreadsheetId, sheetName, headerRow = 1) {
+  const cacheKey = `${spreadsheetId}::${sheetName}::${headerRow}`;
   if (headerMapCache.has(cacheKey)) return headerMapCache.get(cacheKey);
 
   const res = await withRateLimitRetry(
-    () => sheets.spreadsheets.values.get({ spreadsheetId, range: `'${sheetName}'!1:1` }),
+    () => sheets.spreadsheets.values.get({ spreadsheetId, range: `'${sheetName}'!${headerRow}:${headerRow}` }),
     "getHeaderColumnMap"
   );
-  const headerRow = (res.data.values && res.data.values[0]) || [];
+  const headerCells = (res.data.values && res.data.values[0]) || [];
   const map = {};
-  headerRow.forEach((name, idx) => {
+  headerCells.forEach((name, idx) => {
     const trimmed = String(name || "").trim();
     if (trimmed) map[trimmed] = idx + 1;
   });

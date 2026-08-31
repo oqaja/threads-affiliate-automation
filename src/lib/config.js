@@ -16,25 +16,26 @@ function envOr(names, fallback) {
 
 const CONFIG = {
   // --- Sumber data (nama env pendek didukung sebagai alias) ---
-  // Google Doc = sumber utama konten + metadata (Pilar, Brand, Link, isi utas).
+  // Google Doc = sumber teks konten (isi Utas 1/2/Reply), di-key pakai "JUDUL:".
   CONTENT_DOC_ID: envOr(["THREADS_CONTENT_DOC_ID", "DOC_ID"], ""),
 
-  // Google Sheet = tracker approval + operasional + hasil publish/insights.
+  // Google Sheet = metadata (Pilar/Brand/Link/Jam, diisi manual) + approval + hasil.
   TRACKER_SPREADSHEET_ID: envOr(["THREADS_TRACKER_SPREADSHEET_ID", "SHEET_ID"], ""),
-  SHEET_NAME: envOr(["THREADS_SHEET_NAME", "SHEET_NAME"], "Threads Affiliate"),
+  SHEET_NAME: envOr(["THREADS_SHEET_NAME", "SHEET_NAME"], "Tracker Threads Affiliate"),
+  // Header ada di baris 3 (baris 1 = legend warna, baris 2 = label kategori).
+  HEADER_ROW: Number(envOr(["THREADS_HEADER_ROW", "HEADER_ROW"], "3")) || 3,
 
   // Folder Drive berisi gambar. Nama file: "<Judul Konten> 1.jpg", "<Judul Konten> 2.jpg", dst.
   // Folder ini HARUS di-share "anyone with the link can view" supaya Threads API bisa fetch gambarnya.
   DRIVE_IMAGE_FOLDER_ID: envOr(["THREADS_DRIVE_IMAGE_FOLDER_ID", "DRIVE_FOLDER_ID"], ""),
 
-  // --- Kolom Sheet (harus sama persis dengan header di baris 1) ---
+  // --- Kolom Sheet (sama persis dengan header baris 3 di "Tracker Threads Affiliate") ---
   COL: {
-    JUDUL: "Judul Konten", // matching key
-    TANGGAL: "Tanggal Upload", // dd/mm/yyyy - sync dari Docs
+    JUDUL: "Judul Konten", // matching key ke "JUDUL:" di Doc
     PILAR: "Pilar",
     BRAND: "Brand/Produk",
     BRAND_REF: "Brand Referensi",
-    JAM: "Jam Threads", // HH:MM (WIB)
+    JAM: "Jam Threads", // HH:MM (WIB) - jam paling awal Utas 1 boleh keluar; kosong = langsung
     LINK: "Link Affiliate",
     UTM: "UTM Link Affiliate",
     STATUS: "STATUS THREADS",
@@ -46,11 +47,6 @@ const CONFIG = {
     VIEWS_2: "Views Utas 2",
     REPLY_RATE: "Reply Rate (%)",
     CATATAN: "Catatan",
-  },
-
-  // Kolom bantu yang dibuat otomatis oleh script (tambahkan sendiri di Sheet kalau mau lihat timestamp-nya).
-  COL_INTERNAL: {
-    TS_UTAS1: "TS Utas 1", // ISO timestamp Utas 1 dipublish (dipakai hitung jeda Utas 2)
   },
 
   // --- Nilai STATUS THREADS (state machine) ---

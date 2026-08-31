@@ -26,8 +26,8 @@ async function safeInsights(threads, mediaId) {
 }
 
 async function runInsights({ sheets, threads }) {
-  const headerMap = await getHeaderColumnMap(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
-  const { rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
+  const headerMap = await getHeaderColumnMap(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW);
+  const { rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW);
 
   const withPosts = rows.filter((r) => String(r[C.POST_ID_1] || "").trim());
   console.log(`${withPosts.length} baris punya POST ID - tarik insights.`);

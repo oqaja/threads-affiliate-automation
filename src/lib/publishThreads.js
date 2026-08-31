@@ -15,16 +15,26 @@
 const { CONFIG } = require("./config");
 const { parseContentDoc } = require("./docsReader");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue } = require("./sheetsHelper");
-const { combineDateAndTime } = require("./dateUtils");
+const { getDatePartsInTimezone } = require("./dateUtils");
 const { findImagesForTitle } = require("./driveFinder");
 const { isDryRun } = require("./env");
 
 const C = CONFIG.COL;
 const S = CONFIG.STATUS;
-const TS1 = CONFIG.COL_INTERNAL.TS_UTAS1;
+const HR = CONFIG.HEADER_ROW;
 
 function normKey(s) {
   return String(s || "").trim().toLowerCase();
+}
+
+/** "Jam Threads" (HH:MM WIB) sudah lewat belum untuk hari ini? Kosong = anggap sudah. */
+function jamThreadsPassed(jamCell) {
+  const s = String(jamCell || "").trim().replace(".", ":");
+  const m = s.match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return true;
+  const target = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const now = getDatePartsInTimezone(new Date(), CONFIG.TIMEZONE);
+  return now.hour * 60 + now.minute >= target;
 }
 
 /** Buang baris yang seluruhnya instruksi dalam kurung siku, mis. "[script otomatis replace ...]". */
@@ -135,9 +145,8 @@ async function processRow(row, block, ctx) {
   try {
     // ---- Step 1: UTAS 1 ----
     if (status === S.READY && !String(row[C.POST_ID_1] || "").trim()) {
-      const jadwal = combineDateAndTime(row[C.TANGGAL], row[C.JAM], CONFIG.TIMEZONE);
-      if (jadwal && jadwal.getTime() > Date.now()) {
-        console.log(`  (skip) ${judul}: belum waktunya (jadwal ${jadwal.toISOString()}).`);
+      if (!jamThreadsPassed(row[C.JAM])) {
+        console.log(`  (skip) ${judul}: belum jam ${row[C.JAM]} WIB.`);
         return;
       }
       const text = applyPlaceholders(block.utas1, { brand });
@@ -146,16 +155,16 @@ async function processRow(row, block, ctx) {
       console.log(`  -> post Utas 1: ${judul}`);
       const id1 = await publishText(threads, { text });
       await write(sheets, headerMap, rowNum, C.POST_ID_1, id1);
-      await write(sheets, headerMap, rowNum, TS1, new Date().toISOString());
       await setStatus(S.UTAS1_DONE);
-      await setCatatan(`Utas 1 published ${id1}`);
+      await setCatatan(`Utas 1 published ${id1} @ ${new Date().toISOString()}`);
       return;
     }
 
     // ---- Step 2: UTAS 2 ----
     if (status === S.UTAS1_DONE && String(row[C.POST_ID_1] || "").trim() && !String(row[C.POST_ID_2] || "").trim()) {
       const jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
-      const elapsed = minutesSince(String(row[TS1] || ""));
+      const ts1 = await threads.getMediaTimestamp(String(row[C.POST_ID_1]).trim()).catch(() => null);
+      const elapsed = minutesSince(ts1);
       if (elapsed < jeda) {
         console.log(`  (tunggu) ${judul}: jeda Utas 2 ${elapsed.toFixed(1)}/${jeda} menit.`);
         return;
@@ -202,8 +211,8 @@ async function runPublish({ sheets, drive, docs, threads }) {
   const blocks = parseContentDoc(doc);
   const blockByJudul = new Map(blocks.map((b) => [normKey(b.judul), b]));
 
-  const headerMap = await getHeaderColumnMap(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
-  const { rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
+  const headerMap = await getHeaderColumnMap(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, HR);
+  const { rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, HR);
 
   const actionable = new Set([S.READY, S.UTAS1_DONE, S.UTAS2_DONE]);
   const todo = rows.filter((r) => actionable.has(String(r[C.STATUS] || "").trim()));

@@ -75,6 +75,9 @@ function makeClient({ userId, accessToken }) {
       async getMediaInsights() {
         return {};
       },
+      async getMediaTimestamp() {
+        return new Date(Date.now() - 3600 * 1000).toISOString();
+      },
     };
   }
 
@@ -133,6 +136,12 @@ function makeClient({ userId, accessToken }) {
         creation_id: creationId,
       });
       return json.id; // media_id
+    },
+
+    /** ISO timestamp saat media dipublish (dipakai hitung jeda Utas 2). */
+    async getMediaTimestamp(mediaId) {
+      const json = await apiCall("GET", `${mediaId}`, { ...auth, fields: "timestamp" });
+      return json.timestamp || null;
     },
 
     /** Ambil insights 1 media. Return objek { metricName: number }. */
