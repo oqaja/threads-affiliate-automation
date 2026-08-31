@@ -17,6 +17,7 @@ const { CONFIG, assertCoreConfig } = require("../src/lib/config");
 const { parseContentDoc } = require("../src/lib/docsReader");
 const { readSheetAsObjects } = require("../src/lib/sheetsHelper");
 const { listImagesInFolder, findImagesForTitle } = require("../src/lib/driveFinder");
+const { extractLines } = require("../src/lib/docsReader");
 
 const C = CONFIG.COL;
 let problems = 0;
@@ -41,6 +42,12 @@ const warn = (m) => console.log(`  ! ${m}`);
     const doc = await docs.documents.get({ documentId: CONFIG.CONTENT_DOC_ID }).then((r) => r.data);
     blocks = parseContentDoc(doc);
     ok(`Baca Doc "${doc.title}" — ${blocks.length} blok konten valid`);
+    if (blocks.length === 0) {
+      const lines = extractLines(doc).filter((l) => l.trim() !== "");
+      warn(`Doc tidak match format template. ${lines.length} baris terisi. 40 baris pertama:`);
+      lines.slice(0, 40).forEach((l, i) => console.log(`      ${String(i + 1).padStart(2)}| ${l.slice(0, 100)}`));
+      console.log(`      (parser butuh baris label "Judul Konten" + marker "--- UTAS 1 (Hook) ---" dll — lihat docs/Template_Konten...)`);
+    }
     blocks.forEach((b) =>
       console.log(
         `      • ${b.judul}  [${b.pilar || "-"}]  jam ${b.jamThreads || "-"}  ` +
@@ -61,6 +68,16 @@ const warn = (m) => console.log(`  ! ${m}`);
   console.log("\n[Google Sheets]");
   let sheetRows = [];
   try {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID });
+    const tabs = (meta.data.sheets || []).map((s) => s.properties.title);
+    console.log(`      tab yang ada: ${tabs.map((t) => `"${t}"`).join(", ")}`);
+    if (!tabs.includes(CONFIG.SHEET_NAME)) {
+      warn(`Tab "${CONFIG.SHEET_NAME}" belum ada — akan dibuat otomatis + header saat "npm run sync" pertama.`);
+    }
+  } catch (e) {
+    bad(`Gagal baca metadata spreadsheet: ${e.message}`);
+  }
+  try {
     const { headers, rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME);
     sheetRows = rows;
     ok(`Baca tab "${CONFIG.SHEET_NAME}" — ${rows.length} baris data`);
@@ -80,7 +97,11 @@ const warn = (m) => console.log(`  ! ${m}`);
       bad(`Tidak bisa tulis ke Sheet — share tracker ke ${getServiceAccountEmail()} sebagai Editor. (${e.message})`);
     }
   } catch (e) {
-    bad(`Gagal baca Sheet (tab "${CONFIG.SHEET_NAME}"): ${e.message}`);
+    if (/Unable to parse range/i.test(e.message)) {
+      warn(`Tab "${CONFIG.SHEET_NAME}" belum ada — bukan masalah, "npm run sync" bikin otomatis. (tes tulis dilewati)`);
+    } else {
+      bad(`Gagal baca Sheet (tab "${CONFIG.SHEET_NAME}"): ${e.message}`);
+    }
   }
 
   // 4. Drive
