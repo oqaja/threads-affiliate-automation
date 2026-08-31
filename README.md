@@ -20,17 +20,23 @@ Sheet: Views Utas 1/2, Reply Rate (%)
 **Google Doc format** (`docs/Template_Konten_Threads_Affiliate_v2.docx` sebagai acuan):
 
 ```
-JUDUL: Samba Look Lokal Ver
+Weidenmann - Sepatu Kulit Handmade
 --- UTAS 1 (Hook) ---
 <teks hook, tutup dengan cliffhanger>
 --- UTAS 2 (Produk) ---
 <teks produk, pakai [Brand/Produk], TANPA link>
 --- REPLY (Link) ---
 link pembelian 👇 [Link Affiliate]
+==================================================
+Weidenmann - Belt Kulit Nabati
+--- UTAS 1 (Hook) ---
+...
 ```
 
-`JUDUL:` harus sama persis dengan `Judul Konten` di Sheet. (Tanpa baris `JUDUL:`,
-judul diambil dari heading terakhir sebelum `--- UTAS 1 ---`, mis. `CONTOH TERISI — "..."`.)
+- Antar blok dipisah baris pemisah (≥6 karakter `=` / `-`, mis. `====…`).
+- Judul blok = baris tepat sebelum `--- UTAS 1 (Hook) ---` (boleh juga ditulis
+  `JUDUL: xxx`). Harus **sama persis** dengan `Judul Konten` di Sheet.
+- Baris yang isinya seluruhnya `[...]` (instruksi template) dibuang otomatis.
 
 ## State machine (kolom `STATUS THREADS`)
 

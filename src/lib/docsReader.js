@@ -114,7 +114,8 @@ function parseContentDoc(doc) {
       continue;
     }
 
-    if (/akhir 1 blok konten|^—\s*akhir/i.test(line)) {
+    // Pemisah antar-blok: baris "====...", "----------", dst. ATAU teks "akhir 1 blok konten".
+    if (/^\s*[=_*·—–-]{6,}\s*$/.test(line) || /akhir 1 blok konten|^—\s*akhir/i.test(line)) {
       flush();
       lastHeading = "";
       continue;

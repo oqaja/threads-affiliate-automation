@@ -59,6 +59,51 @@ test("parseContentDoc: fallback heading + JUDUL:, buang blok placeholder", () =>
   assert.equal(blocks[1].utas1, "Hype 550 lagi kenceng.");
 });
 
+const EQ = "=".repeat(50);
+const REAL_FORMAT = [
+  "BRIEF THREADS",
+  "Weidenmann - Sepatu Kulit Handmade",
+  "--- UTAS 1 (Hook) ---",
+  "Sepatu lo bau? Bukan salah kaki.",
+  "Ini soal bahan.",
+  "--- UTAS 2 (Produk) ---",
+  "[Brand/Produk] pakai kulit full-grain yang breathable.",
+  "--- REPLY (Link) ---",
+  "cek di sini 👇 [Link Affiliate]",
+  EQ,
+  "Weidenmann - Belt Kulit Nabati",
+  "--- UTAS 1 (Hook) ---",
+  "Belt murah retak dalam sebulan.",
+  "--- UTAS 2 (Produk) ---",
+  "[Brand/Produk] samak nabati, makin lama makin patina.",
+  "--- REPLY (Link) ---",
+  "link 👇 [Link Affiliate]",
+  EQ,
+  "JUDUL: Weidenmann - Dompet Kartu",
+  "--- UTAS 1 (Hook) ---",
+  "Dompet tebal itu red flag.",
+  "--- UTAS 2 (Produk) ---",
+  "[Brand/Produk] slim, muat 6 kartu.",
+  "--- REPLY (Link) ---",
+  "👇 [Link Affiliate]",
+];
+
+test("parseContentDoc: format asli (heading + ==== separator + JUDUL:)", () => {
+  const blocks = parseContentDoc(fakeDoc(REAL_FORMAT));
+  assert.equal(blocks.length, 3);
+  assert.deepEqual(
+    blocks.map((b) => b.judul),
+    ["Weidenmann - Sepatu Kulit Handmade", "Weidenmann - Belt Kulit Nabati", "Weidenmann - Dompet Kartu"]
+  );
+  // paragraf terpisah -> dipisah baris kosong (bagus buat Threads)
+  assert.equal(blocks[0].utas1, "Sepatu lo bau? Bukan salah kaki.\n\nIni soal bahan.");
+  assert.match(blocks[0].reply, /\[Link Affiliate\]$/);
+  assert.equal(blocks[1].utas1, "Belt murah retak dalam sebulan.");
+  // separator "====" tidak boleh nyangkut di teks reply
+  assert.ok(!blocks[0].reply.includes("="));
+  assert.ok(!blocks[1].reply.includes("="));
+});
+
 test("stripInstructionLines: buang baris kurung siku penuh (termasuk bersarang), simpan yang inline", () => {
   const out = stripInstructionLines("[Brand/Produk] keren.\n[script replace ...]\nbeneran keren.");
   assert.equal(out, "[Brand/Produk] keren.\nbeneran keren.");
