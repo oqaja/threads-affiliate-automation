@@ -16,7 +16,9 @@
     "publish": "node --env-file-if-exists=.env scripts/run-publish.js",
     "insights": "node --env-file-if-exists=.env scripts/run-insights.js",
     "get-token": "node --env-file-if-exists=.env scripts/get-threads-token.js",
-    "test": "node --test"
+    "test": "node --test",
+    "doc-dump": "node --env-file-if-exists=.env scripts/doc-dump.js",
+    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js"
   },
   "dependencies": {
     "googleapis": "^140.0.1",

@@ -21,9 +21,9 @@ const CONFIG = {
 
   // Google Sheet = metadata (Pilar/Brand/Link/Jam, diisi manual) + approval + hasil.
   TRACKER_SPREADSHEET_ID: envOr(["THREADS_TRACKER_SPREADSHEET_ID", "SHEET_ID"], ""),
-  SHEET_NAME: envOr(["THREADS_SHEET_NAME", "SHEET_NAME"], "Tracker Threads Affiliate"),
-  // Header ada di baris 3 (baris 1 = legend warna, baris 2 = label kategori).
-  HEADER_ROW: Number(envOr(["THREADS_HEADER_ROW", "HEADER_ROW"], "3")) || 3,
+  SHEET_NAME: envOr(["THREADS_SHEET_NAME", "SHEET_NAME"], "JADWAL THREADS"),
+  // Header di baris 1 (kolom: Judul Konten, Pilar, Brand/Produk, ... Catatan).
+  HEADER_ROW: Number(envOr(["THREADS_HEADER_ROW", "HEADER_ROW"], "1")) || 1,
 
   // Folder Drive berisi gambar. Nama file: "<Judul Konten> 1.jpg", "<Judul Konten> 2.jpg", dst.
   // Folder ini HARUS di-share "anyone with the link can view" supaya Threads API bisa fetch gambarnya.

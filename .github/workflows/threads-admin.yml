@@ -5,18 +5,21 @@ on:
       action:
         description: 'Aksi'
         type: choice
-        options: [set-cell, delete-column]
-        default: set-cell
+        options: [set-cell, delete-column, rename-tab, doc-dump]
+        default: doc-dump
       judul:
         description: '(set-cell) Judul Konten'
         required: false
       col:
-        description: 'Nama kolom (persis header baris 3)'
-        required: true
+        description: '(set-cell / delete-column) Nama kolom'
+        required: false
       value:
         description: '(set-cell) Nilai baru — kosongkan untuk clear'
         required: false
         default: ''
+      to:
+        description: '(rename-tab) Nama tab baru'
+        required: false
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -34,13 +37,11 @@ jobs:
       JUDUL: ${{ inputs.judul }}
       COL: ${{ inputs.col }}
       VALUE: ${{ inputs.value }}
+      TO: ${{ inputs.to }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm ci
-      - if: inputs.action == 'set-cell'
-        run: npm run set-cell
-      - if: inputs.action == 'delete-column'
-        run: npm run delete-column
+      - run: npm run ${{ inputs.action }}
