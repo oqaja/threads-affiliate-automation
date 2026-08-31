@@ -58,7 +58,7 @@ const CONFIG = {
     ERROR: "Gagal",
   },
 
-  DEFAULT_JEDA_UTAS2_MENIT: 15,
+  DEFAULT_JEDA_UTAS2_MENIT: 5,
 
   // Placeholder di teks Doc yang di-replace otomatis saat publish.
   PLACEHOLDER: {

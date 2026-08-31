@@ -42,7 +42,9 @@ judul diambil dari heading terakhir sebelum `--- UTAS 1 ---`, mis. `CONTOH TERIS
 | error di step mana pun | tulis pesan ke `Catatan` | `Gagal` |
 
 Jeda antar-utas dihitung dari `timestamp` post Utas 1 (diambil dari Threads API),
-bukan `sleep` — aman walau GitHub Actions jalan per 15 menit. Default jeda 15 menit.
+bukan `sleep` — aman walau GitHub Actions jalan per 5 menit. Default jeda 5 menit
+(atau isi kolom `Jeda Utas 2 (menit)` per baris). Catatan: GitHub Actions cron
+sering telat beberapa menit saat load tinggi, jadi jeda efektif ≈ 5–12 menit.
 
 ## Placeholder yang di-replace otomatis saat publish
 
