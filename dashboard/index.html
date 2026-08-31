@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Threads Affiliate — Dashboard</title>
+  <meta name="description" content="Dashboard controlling untuk sistem Threads Affiliate automation." />
+  <meta name="theme-color" content="#4f46e5" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-in">
+      <a class="brand" href="#/">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>Threads Affiliate</span>
+      </a>
+      <nav class="tabs" id="tabs">
+        <a href="#/" data-route="/">Konten</a>
+        <a href="#/insight" data-route="/insight">Insight</a>
+      </nav>
+      <div class="topbar-actions">
+        <button id="btn-refresh" class="icon-btn" title="Refresh data" aria-label="Refresh data">↻</button>
+        <button id="btn-theme" class="icon-btn" title="Ganti tema" aria-label="Ganti tema">◑</button>
+        <button id="btn-settings" class="icon-btn" title="Pengaturan" aria-label="Pengaturan">⚙</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app" class="wrap"><div class="loading">Memuat data…</div></main>
+
+  <footer class="foot">
+    <span id="foot-meta"></span>
+  </footer>
+
+  <div id="modal-root"></div>
+  <div id="toast-root" aria-live="polite"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

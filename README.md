@@ -139,6 +139,31 @@ Workflow (semua **manual** dulu — `schedule` di-comment sampai 1x run sukses):
 Jalanin dari tab **Actions → pilih workflow → Run workflow**. Setelah publish sukses
 sekali (dry-run lalu beneran), un-comment blok `schedule:` di kedua workflow.
 
+## Dashboard PWA (`/dashboard`)
+
+Dashboard controlling — **jendela** ke data Sheets/Docs, bukan editor konten. Hosted di
+GitHub Pages: **https://oqaja.github.io/threads-affiliate-automation/**
+
+- **Halaman Konten**: card per konten (judul, pilar badge, jam, status badge), filter by
+  status & pilar, sort. Tombol **Approve → Acc** (nulis balik ke Sheets), **Detail**
+  (modal isi Utas 1/2/Reply dari Docs, raw / preview-terkirim), link ke baris Sheets & Docs.
+- **Halaman Insight**: summary (total konten, uploaded, total views, avg reply rate),
+  breakdown performa per pilar, list konten `Gagal` buat retry.
+
+**Arsitektur** (tidak ada key di frontend):
+- **Baca**: workflow `dashboard.yml` (service account, di GitHub Actions) nge-snapshot
+  Sheets + Docs → `dashboard/data.json`, lalu deploy folder `dashboard/` ke Pages.
+  Jalan tiap 15 menit + on-push + manual.
+- **Tulis** (Approve / retry): opsional. Isi **GitHub fine-grained PAT** (permission
+  *Actions: Read and write*) di ⚙ Pengaturan — disimpan cuma di localStorage browser,
+  tidak pernah di-commit. Tombol Approve men-trigger `threads-admin.yml` (set-cell
+  STATUS THREADS = Acc). Tanpa PAT, tombol jadi link ke baris Sheets.
+
+Secret tambahan buat `dashboard.yml`: sama dengan workflow lain (GOOGLE_*, DOC_ID,
+SHEET_ID, DRIVE_FOLDER_ID). Pages source = **GitHub Actions** (di-set otomatis oleh workflow).
+
+Lokal: `npm run build:dashboard` lalu serve folder `dashboard/`.
+
 ## Test
 
 ```bash

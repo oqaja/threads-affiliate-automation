@@ -18,7 +18,8 @@
     "get-token": "node --env-file-if-exists=.env scripts/get-threads-token.js",
     "test": "node --test",
     "doc-dump": "node --env-file-if-exists=.env scripts/doc-dump.js",
-    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js"
+    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js",
+    "build:dashboard": "node --env-file-if-exists=.env scripts/build-dashboard-data.js"
   },
   "dependencies": {
     "googleapis": "^140.0.1",
