@@ -21,8 +21,6 @@ jobs:
         env:
           GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
           GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
-          GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.THREADS_GOOGLE_SERVICE_ACCOUNT_KEY }}
-          DOC_ID: ${{ secrets.DOC_ID }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           THREADS_SHEET_NAME: ${{ secrets.THREADS_SHEET_NAME }}

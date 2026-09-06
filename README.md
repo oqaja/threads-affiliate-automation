@@ -1,14 +1,14 @@
 # threads-affiliate-automation
 
-Automasi konten affiliate di **Threads**, personal use. Alurnya:
+Automasi konten affiliate di **Threads**, personal use. **Satu sumber data: Google Sheet
+"JADWAL THREADS".** Input & approval semua dari Google Sheets app (di HP). Google Docs
+sudah tidak dipakai.
 
 ```
-Google Doc  = TEKS konten saja, per blok "JUDUL:" + 3 section
-        │  scripts/run-sync.js  →  pastikan tiap JUDUL punya baris di Sheet
-        ▼
-Google Sheet tab "Tracker Threads Affiliate"  (header di BARIS 3)
-   = metadata (Pilar/Brand/Link/Jam) diisi MANUAL + approval + hasil
-        │  scripts/run-publish.js  (state machine)
+Google Sheet "JADWAL THREADS"
+   = SEMUA data: metadata (Pilar/Brand/Link/Jam) + DRAFT teks (Utas 1/2/Reply)
+     + approval (STATUS) + hasil (POST ID, Views)
+        │  scripts/run-publish.js  (baca baris STATUS "Acc")
         ▼
 Threads  →  3 post berantai:
    Utas 1 (hook, text)  ──reply──▶  Utas 2 (produk + gambar Drive)  ──reply──▶  Reply (link affiliate)
@@ -17,56 +17,58 @@ Threads  →  3 post berantai:
 Sheet: Views Utas 1/2, Reply Rate (%)
 ```
 
-**Google Doc format** (`docs/Template_Konten_Threads_Affiliate_v2.docx` sebagai acuan):
+Gambar tetap dari folder **Google Drive "THREADS UPLOAD"** (upload manual dari HP),
+matching nama file `<Judul Konten> 1.jpg`, `<Judul Konten> 2.jpg`, dst.
+
+## Kolom Sheet (tab **"JADWAL THREADS"**, header **baris 3** — baris 1 legend, baris 2 label grup)
+
+Urutan fisik sekarang:
 
 ```
-Judul Konten | Weidenmann - Commuting Harian
-Pilar | Cerita Personal
-Brand/Produk | Weidenmann Urban x Willy Winarko Hinterhalt 02
-Link Affiliate | https://s.shopee.co.id/gPi35xU8y
-Jam Threads | 19:00
---- UTAS 1 (Hook) ---
-<teks hook, tutup dengan cliffhanger>
---- UTAS 2 (Produk) ---
-<teks produk, pakai [Brand/Produk], TANPA link>
---- REPLY (Link) ---
-Link pembelian: [Link Affiliate]
-==================================================
-Judul Konten | Weidenmann - Harga vs Value XT-6
-...
+Tanggal Upload · Judul Konten · Pilar · Segmen · Brand/Produk · Brand Referensi ·
+Link Affiliate · Jam Threads · Catatan Angle · Utas 1 (Hook) · Utas 2 (Produk) ·
+Reply (Link) · STATUS THREADS · Jeda Utas 2 (menit) · Catatan ·
+POST ID Utas 1 · POST ID Utas 2 · POST ID Reply Link ·
+Views Utas 1 · Views Utas 2 · Reply Rate (%)
 ```
 
-- Antar blok dipisah baris pemisah (≥6 karakter `=`/`-`, mis. `====…`).
-- Judul blok dari baris `Judul Konten | xxx` (atau `JUDUL: xxx`, atau baris polos
-  tepat sebelum `--- UTAS 1 ---`). Harus **sama persis** dengan `Judul Konten` di Sheet.
-- Baris metadata lain (`Pilar | …`, `Brand/Produk | …`, dst) **diabaikan parser** —
-  script baca metadata dari Sheet, bukan Doc. (Doc metadata cuma referensi.)
-- Baris yang isinya seluruhnya `[...]` (instruksi template) dibuang otomatis.
+Script baca kolom **berdasarkan nama header** (urutan bebas). Yang dipakai script:
 
-Kolom Sheet (tab **"JADWAL THREADS"**, header **baris 1**, urutan tetap):
-`Judul Konten · Pilar · Brand/Produk · Brand Referensi · Jam Threads · Link Affiliate ·
-STATUS THREADS · Jeda Utas 2 (menit) · POST ID Utas 1 · POST ID Utas 2 · POST ID Reply Link ·
-Views Utas 1 · Views Utas 2 · Reply Rate (%) · Catatan`
+| Kolom | Dipakai untuk |
+|---|---|
+| `Judul Konten` | matching nama file gambar di Drive |
+| `Brand/Produk` | isi placeholder `[Brand/Produk]` di teks |
+| `Link Affiliate` | isi placeholder `[Link Affiliate]` — dipakai apa adanya (tanpa UTM) |
+| `Jam Threads` | jam paling awal Utas 1 boleh keluar (WIB). Kosong = langsung. Terima `19:00` atau serial time |
+| `Utas 1 (Hook)` / `Utas 2 (Produk)` / `Reply (Link)` | **draft teks** yang diposting |
+| `STATUS THREADS` | approval + hasil (lihat bawah) |
+| `Jeda Utas 2 (menit)` | jeda Utas 1 → Utas 2 (default 5, maks 30) |
+| `Catatan` | log hasil / pesan error (ditulis script) |
+| `POST ID *`, `Views *`, `Reply Rate (%)` | hasil (ditulis script) |
 
-## State machine (kolom `STATUS THREADS`)
+Kolom `Tanggal Upload`, `Segmen`, `Brand Referensi`, `Catatan Angle` = referensi manual,
+tidak disentuh script.
+
+## Alur STATUS THREADS
 
 | STATUS | Aksi script | STATUS berikutnya |
 |---|---|---|
-| `Acc` (diisi manual setelah approval) | post Utas 1 (kalau jam sekarang ≥ `Jam Threads` WIB; kosong = langsung) | `Utas 1 Posted` |
-| `Utas 1 Posted` | tunggu `Jeda Utas 2 (menit)` sejak Utas 1, lalu post Utas 2 (reply ke Utas 1, + gambar) | `Utas 2 Posted` |
-| `Utas 2 Posted` | post Reply link (reply ke Utas 2) | `Published` |
+| *(kosong)* | — (nunggu approval) | — |
+| `Acc` (diisi manual dari Sheets app) | kalau `Jam Threads` sudah lewat: post 3 utas berantai (Utas 1 → jeda → Utas 2 + gambar → Reply link) | `Uploaded` |
+| `Uploaded` | selesai | — |
 | error di step mana pun | tulis pesan ke `Catatan` | `Gagal` |
 
-Jeda antar-utas dihitung dari `timestamp` post Utas 1 (diambil dari Threads API),
-bukan `sleep` — aman walau GitHub Actions jalan per 5 menit. Default jeda 5 menit
-(atau isi kolom `Jeda Utas 2 (menit)` per baris). Catatan: GitHub Actions cron
-sering telat beberapa menit saat load tinggi, jadi jeda efektif ≈ 5–12 menit.
+- **Satu baris per run.** Baris berikutnya diproses run cron selanjutnya (`*/5` menit).
+- Jeda Utas 1 → Utas 2 pakai `sleep` dalam proses (bukan state antar-run), jadi 1 run =
+  1 konten utuh. Kalau isi kolom `Jeda` > 30, dibatasi ke 30 menit.
+- **Retry setelah `Gagal`:** kosongkan kolom `POST ID *` yang mau diulang, set `STATUS`
+  balik ke `Acc`. Step yang `POST ID`-nya masih keisi akan di-skip (tidak dobel-post).
 
 ## Placeholder yang di-replace otomatis saat publish
 
 - `[Brand/Produk]` → kolom `Brand/Produk`
 - `[Link Affiliate]` → kolom `Link Affiliate` (apa adanya, tanpa tambahan apa pun)
-- Baris yang isinya **seluruhnya** dalam kurung siku (mis. `[script otomatis replace ...]`) dibuang.
+- Baris yang isinya **seluruhnya** dalam kurung siku (mis. `[catatan: ...]`) dibuang.
 
 ## Gambar
 
@@ -75,17 +77,17 @@ Nama file di folder Drive: `<Judul Konten> 1.jpg`, `<Judul Konten> 2.jpg`, dst (
 - ≥2 gambar → CAROUSEL (maks 20)
 - 0 gambar → text only
 
-> **Folder Drive gambar HARUS di-share "Anyone with the link → Viewer"**, karena Threads API men-fetch gambar lewat URL publik (`https://drive.google.com/uc?export=download&id=...`).
+> **Folder Drive gambar HARUS di-share "Anyone with the link → Viewer"**, karena Threads API
+> men-fetch gambar lewat URL publik (`https://drive.google.com/uc?export=download&id=...`).
 
 ## Setup
 
 ### 1. Google service account
 1. Buat service account + JSON key.
-2. Aktifkan **Google Sheets API**, **Google Drive API**, **Google Docs API**.
+2. Aktifkan **Google Sheets API** + **Google Drive API**.
 3. Share ke email service account:
-   - Google Doc konten → Viewer
-   - Google Sheet tracker → **Editor**
-   - Folder Drive gambar → Viewer (dan folder itu juga "anyone with link")
+   - Google Sheet "JADWAL THREADS" → **Editor**
+   - Folder Drive gambar → Viewer (dan folder itu juga "anyone with link → Viewer")
 
 ### 2. Threads API
 Sudah punya Meta app + token. Buat long-lived token + ambil user id:
@@ -94,75 +96,42 @@ Sudah punya Meta app + token. Buat long-lived token + ambil user id:
 THREADS_APP_SECRET=xxx SHORT_LIVED_TOKEN=yyy npm run get-token
 ```
 
-Output `THREADS_ACCESS_TOKEN` (60 hari, auto-refresh tiap run) dan `THREADS_USER_ID`.
-Scope token yang dibutuhkan: `threads_basic`, `threads_content_publish`, `threads_manage_insights`.
+Output `THREADS_ACCESS_TOKEN` (60 hari) dan `THREADS_USER_ID`.
+Scope: `threads_basic`, `threads_content_publish`, `threads_manage_insights`.
 
 ### 3. Lokal
 ```bash
-cp .env.example .env       # isi semua nilai
+cp .env.example .env       # isi nilainya
 npm install
-npm run check              # preflight: cek semua koneksi, TIDAK nge-post apa pun
+npm run check              # preflight: cek koneksi Sheets + Drive + Threads, TIDAK nge-post
+npm run preview            # tampilkan persis teks yang akan diposting per baris "Acc"
 DRY_RUN=1 npm run publish  # simulasi penuh — log apa yang AKAN diposting, tanpa nulis/post
-npm run publish            # beneran: sync + state machine
+npm run publish            # beneran
 npm run insights
 ```
 
-`npm run check` memvalidasi: creds service account, baca Doc + parse blok, baca/tulis
-Sheet, akses folder Drive + status sharing publik, token Threads (`/me`), dan cross-check
-Doc ↔ Sheet ↔ Drive per konten. `DRY_RUN=1` mem-bypass semua tulisan ke Sheet dan semua
-call publish ke Threads (insights tetap jalan, read-only).
-
 ### 4. GitHub Actions
-Repo secrets (nama yang dipakai sekarang):
+Repo secrets:
 
 | Secret | Isi |
 |---|---|
 | `GOOGLE_SERVICE_ACCOUNT_EMAIL` | `client_email` dari JSON service account |
 | `GOOGLE_PRIVATE_KEY` | `private_key` dari JSON (boleh dengan `\n` literal) |
-| `DOC_ID` | ID Google Doc |
-| `SHEET_ID` | ID Google Sheet |
+| `SHEET_ID` | ID Google Sheet "JADWAL THREADS" |
 | `DRIVE_FOLDER_ID` | ID folder Drive gambar |
 | `THREADS_USER_ID` | dari `npm run get-token` |
 | `THREADS_ACCESS_TOKEN` | long-lived token |
 | `THREADS_APP_SECRET` | app secret Meta (opsional, buat re-exchange manual) |
-| `SECRETS_WRITE_PAT` | *(opsional)* PAT fine-grained, **Secrets: read/write** di repo ini — biar token hasil refresh ke-simpan otomatis. Tanpa ini, refresh ulang `THREADS_ACCESS_TOKEN` manual tiap < 60 hari. |
-| `THREADS_SHEET_NAME` | *(opsional)* default `Threads Affiliate` |
+| `THREADS_SHEET_NAME` | *(opsional)* default `JADWAL THREADS` |
+| `SECRETS_WRITE_PAT` | *(opsional)* PAT fine-grained, **Secrets: read/write** — biar token hasil refresh ke-simpan otomatis. Tanpa ini, refresh ulang `THREADS_ACCESS_TOKEN` manual tiap < 60 hari. |
 
-> Kode juga masih nerima nama panjang lama (`THREADS_CONTENT_DOC_ID`, dll) dan
-> `GOOGLE_SERVICE_ACCOUNT_KEY` (JSON inline) sebagai alternatif.
+> `DOC_ID` sudah **tidak dipakai** — boleh dihapus dari secrets.
 
-Workflow (semua **manual** dulu — `schedule` di-comment sampai 1x run sukses):
-- `threads-check.yml` — preflight, aman, tidak nge-post
-- `threads-publish.yml` — sync + publish; input `dry_run` (default **true**)
-- `threads-insights.yml` — insights
-
-Jalanin dari tab **Actions → pilih workflow → Run workflow**. Setelah publish sukses
-sekali (dry-run lalu beneran), un-comment blok `schedule:` di kedua workflow.
-
-## Dashboard PWA (`/dashboard`)
-
-Dashboard controlling — **jendela** ke data Sheets/Docs, bukan editor konten. Hosted di
-GitHub Pages: **https://oqaja.github.io/threads-affiliate-automation/**
-
-- **Halaman Konten**: card per konten (judul, pilar badge, jam, status badge), filter by
-  status & pilar, sort. Tombol **Approve → Acc** (nulis balik ke Sheets), **Detail**
-  (modal isi Utas 1/2/Reply dari Docs, raw / preview-terkirim), link ke baris Sheets & Docs.
-- **Halaman Insight**: summary (total konten, uploaded, total views, avg reply rate),
-  breakdown performa per pilar, list konten `Gagal` buat retry.
-
-**Arsitektur** (tidak ada key di frontend):
-- **Baca**: workflow `dashboard.yml` (service account, di GitHub Actions) nge-snapshot
-  Sheets + Docs → `dashboard/data.json`, lalu deploy folder `dashboard/` ke Pages.
-  Jalan tiap 15 menit + on-push + manual.
-- **Tulis** (Approve / retry): opsional. Isi **GitHub fine-grained PAT** (permission
-  *Actions: Read and write*) di ⚙ Pengaturan — disimpan cuma di localStorage browser,
-  tidak pernah di-commit. Tombol Approve men-trigger `threads-admin.yml` (set-cell
-  STATUS THREADS = Acc). Tanpa PAT, tombol jadi link ke baris Sheets.
-
-Secret tambahan buat `dashboard.yml`: sama dengan workflow lain (GOOGLE_*, DOC_ID,
-SHEET_ID, DRIVE_FOLDER_ID). Pages source = **GitHub Actions** (di-set otomatis oleh workflow).
-
-Lokal: `npm run build:dashboard` lalu serve folder `dashboard/`.
+Workflow:
+- `threads-check.yml` — preflight, aman, tidak nge-post (manual)
+- `threads-publish.yml` — publish; cron `*/5`, input `dry_run` (default **true**) untuk run manual
+- `threads-insights.yml` — insights; cron `17 */3`
+- `threads-admin.yml` — maintenance Sheet (manual): `set-cell` / `delete-column` / `rename-tab`
 
 ## Test
 
@@ -172,7 +141,7 @@ npm test
 
 ## Catatan / batasan
 
-- Batas teks Threads 500 karakter per post — kalau lewat, baris jadi `Gagal`, pendekin di Docs.
+- Batas teks Threads 500 karakter per post — kalau lewat, baris jadi `Gagal`, pendekin di Sheet.
 - Rate limit Threads: 250 post / 24 jam per user.
-- Belum ada reschedule dinamis (beda dengan sistem YouTube) — sekali `Published`, selesai. Kalau mau ulang, kosongkan kolom `POST ID *` + set `STATUS` balik ke `Acc`.
+- Sekali `Uploaded`, selesai. Kalau mau ulang: kosongkan `POST ID *` + set `STATUS` balik ke `Acc`.
 - `_rowNumber` di-track dari urutan baris; jangan sisipkan/hapus baris di tengah saat workflow lagi jalan.

@@ -1,31 +1,34 @@
 /**
  * publishThreads.js
- * State machine publish 1 konten = 3 post berantai di Threads:
+ * Publish 1 konten = 3 post berantai di Threads. SEMUA teks diambil langsung
+ * dari kolom Sheet di baris yang sama:
  *
- *   STATUS "Acc"            -> post UTAS 1 (hook, text only)      -> STATUS "Utas 1 Posted"
- *   STATUS "Utas 1 Posted"  -> setelah jeda: post UTAS 2 (produk + gambar, reply ke Utas 1)
- *                                                                -> STATUS "Utas 2 Posted"
- *   STATUS "Utas 2 Posted"  -> post REPLY (link affiliate, reply ke Utas 2)
- *                                                                -> STATUS "Published"
+ *   "Utas 1 (Hook)"  -> post text                    (Utas 1)
+ *   "Utas 2 (Produk)" -> post + gambar Drive, reply ke Utas 1   (Utas 2)
+ *   "Reply (Link)"   -> post text, reply ke Utas 2   (Reply link)
  *
- * Dijalankan berkala (cron tiap 15 menit). Jeda antar-utas ditangani lewat STATUS + timestamp,
- * bukan sleep, supaya aman di GitHub Actions.
+ * Alur:
+ *   STATUS "Acc" + (Jam Threads sudah lewat)  ->  post 3 utas berantai  ->  STATUS "Uploaded"
+ *   error di step mana pun                     ->  STATUS "Gagal" + Catatan
+ *
+ * Jeda Utas 1 -> Utas 2 = kolom "Jeda Utas 2 (menit)" (default 5), pakai sleep
+ * dalam proses. Satu run memproses SATU baris (biar durasi job terbatas & rapi
+ * buat rate limit); baris berikutnya diproses run cron selanjutnya.
+ *
+ * Placeholder yang di-replace runtime: [Brand/Produk] -> kolom Brand/Produk,
+ * [Link Affiliate] -> kolom Link Affiliate (apa adanya).
  */
 
 const { CONFIG } = require("./config");
-const { parseContentDoc } = require("./docsReader");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue } = require("./sheetsHelper");
 const { getDatePartsInTimezone } = require("./dateUtils");
 const { findImagesForTitle } = require("./driveFinder");
 const { isDryRun } = require("./env");
+const { sleep } = require("./threadsClient");
 
 const C = CONFIG.COL;
 const S = CONFIG.STATUS;
 const HR = CONFIG.HEADER_ROW;
-
-function normKey(s) {
-  return String(s || "").trim().toLowerCase();
-}
 
 /**
  * "Jam Threads" -> menit dalam sehari (WIB). Terima:
@@ -35,13 +38,11 @@ function normKey(s) {
  */
 function jamToMinutes(jamCell) {
   if (jamCell === "" || jamCell == null) return null;
-  // Serial waktu Google Sheets: selalu pecahan 0..1 (0.7916.. = 19:00).
   if (typeof jamCell === "number" && !isNaN(jamCell) && jamCell > 0 && jamCell < 1) {
     return Math.round(jamCell * 24 * 60);
   }
   const raw = String(jamCell).trim();
   if (/^0?\.\d+$/.test(raw)) return Math.round(parseFloat(raw) * 24 * 60); // "0.79166"
-  // "19:00" / "19.00" / "9:5"
   const m = raw.replace(".", ":").match(/^(\d{1,2}):(\d{1,2})/);
   if (!m) return null;
   const h = parseInt(m[1], 10);
@@ -69,11 +70,11 @@ function jamDisplay(jamCell) {
  * Buang baris instruksi template, mis:
  *   [Isi teks hook di sini.]
  *   [script otomatis replace "[Brand/Produk]" pakai isi field Brand/Produk di atas]
- * Baris dianggap instruksi kalau seluruhnya dibungkus kurung siku (boleh ada
- * kurung siku bersarang di dalamnya) ATAU mengandung frasa "script ... replace".
+ * Baris dianggap instruksi kalau seluruhnya dibungkus kurung siku ATAU mengandung
+ * frasa "script ... replace".
  */
 function stripInstructionLines(text) {
-  return text
+  return String(text || "")
     .split("\n")
     .filter((line) => {
       const l = line.trim();
@@ -86,7 +87,7 @@ function stripInstructionLines(text) {
     .trim();
 }
 
-/** Link yang dipakai di Reply = isi kolom "Link Affiliate" apa adanya (tanpa tambahan UTM). */
+/** Link yang dipakai = isi kolom "Link Affiliate" apa adanya (tanpa tambahan UTM). */
 function resolveLink(row) {
   return String(row[C.LINK] || "").trim();
 }
@@ -94,7 +95,7 @@ function resolveLink(row) {
 function applyPlaceholders(text, { brand, link }) {
   // Substitusi placeholder DULU, baru buang baris instruksi — supaya baris konten
   // yang kebetulan diapit "[Brand/Produk] ... [Link Affiliate]" tidak ikut kebuang.
-  let out = text || "";
+  let out = String(text || "");
   if (brand) out = out.split(CONFIG.PLACEHOLDER.BRAND).join(brand);
   if (link) out = out.split(CONFIG.PLACEHOLDER.LINK).join(link);
   out = stripInstructionLines(out);
@@ -102,35 +103,29 @@ function applyPlaceholders(text, { brand, link }) {
 }
 
 function assertLen(label, text) {
+  if (!text) throw new Error(`${label} kosong (cek kolom di Sheet).`);
   if (text.length > CONFIG.THREADS_MAX_TEXT) {
-    throw new Error(`${label} ${text.length} karakter, lewat batas ${CONFIG.THREADS_MAX_TEXT}. Pendekin di Docs.`);
+    throw new Error(`${label} ${text.length} karakter, lewat batas ${CONFIG.THREADS_MAX_TEXT}. Pendekin di Sheet.`);
   }
-  if (!text) throw new Error(`${label} kosong.`);
 }
 
-function minutesSince(iso) {
-  const t = Date.parse(iso);
-  if (isNaN(t)) return Infinity;
-  return (Date.now() - t) / 60000;
-}
-
-async function write(sheets, headerMap, rowNumber, col, value) {
+async function writeCell(sheets, headerMap, rowNumber, col, value) {
   if (!headerMap[col]) return;
   if (isDryRun()) {
-    console.log(`    [DRY] Sheet r${rowNumber} "${col}" = ${JSON.stringify(String(value).slice(0, 80))}`);
+    console.log(`    [DRY] Sheet r${rowNumber} "${col}" = ${JSON.stringify(String(value).slice(0, 90))}`);
     return;
   }
   await setCellValue(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, rowNumber, headerMap[col], value);
 }
 
-/** Publish 1 post text-only (utas 1 / reply). */
+/** Publish 1 post text-only (Utas 1 / Reply). */
 async function publishText(threads, { text, replyToId }) {
   const creationId = await threads.createContainer({ mediaType: "TEXT", text, replyToId });
   await threads.waitUntilFinished(creationId);
   return threads.publishContainer(creationId);
 }
 
-/** Publish 1 post dengan 0..n gambar (utas 2). */
+/** Publish 1 post dengan 0..n gambar (Utas 2). */
 async function publishWithImages(threads, { text, images, replyToId }) {
   if (!images.length) {
     return publishText(threads, { text, replyToId });
@@ -167,108 +162,124 @@ async function publishWithImages(threads, { text, images, replyToId }) {
   return threads.publishContainer(carouselId);
 }
 
-async function processRow(row, block, ctx) {
+/**
+ * Proses 1 baris "Acc" penuh: Utas 1 -> (jeda) -> Utas 2 -> Reply link.
+ * Idempoten: kalau POST ID sudah keisi (mis. retry setelah gagal di tengah),
+ * step itu di-skip dan ID lamanya dipakai sebagai target reply.
+ */
+async function publishRow(row, ctx) {
   const { sheets, drive, threads, headerMap } = ctx;
   const rowNum = row._rowNumber;
   const judul = String(row[C.JUDUL] || "").trim();
-  const status = String(row[C.STATUS] || "").trim();
   const brand = String(row[C.BRAND] || "").trim();
+  const link = resolveLink(row);
 
-  const setStatus = (v) => write(sheets, headerMap, rowNum, C.STATUS, v);
-  const setCatatan = (v) => write(sheets, headerMap, rowNum, C.CATATAN, v);
+  let jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
+  if (jeda > CONFIG.MAX_JEDA_SLEEP_MENIT) {
+    console.log(`  (info) Jeda ${jeda}m dibatasi ke ${CONFIG.MAX_JEDA_SLEEP_MENIT}m.`);
+    jeda = CONFIG.MAX_JEDA_SLEEP_MENIT;
+  }
+
+  const set = (col, v) => writeCell(sheets, headerMap, rowNum, col, v);
+
+  let id1 = String(row[C.POST_ID_1] || "").trim();
+  let id2 = String(row[C.POST_ID_2] || "").trim();
+  let idR = String(row[C.POST_ID_REPLY] || "").trim();
 
   try {
-    // ---- Step 1: UTAS 1 ----
-    if (status === S.READY && !String(row[C.POST_ID_1] || "").trim()) {
-      if (!jamThreadsPassed(row[C.JAM])) {
-        console.log(`  (skip) ${judul}: belum jam ${row[C.JAM]} WIB.`);
-        return;
-      }
-      const text = applyPlaceholders(block.utas1, { brand });
-      assertLen("Utas 1", text);
+    const t1 = applyPlaceholders(row[C.UTAS1], { brand, link });
+    const t2 = applyPlaceholders(row[C.UTAS2], { brand, link });
+    const tR = applyPlaceholders(row[C.REPLY], { brand, link });
+    assertLen("Utas 1", t1);
+    assertLen("Utas 2", t2);
+    assertLen("Reply link", tR);
+    if (!link) throw new Error('Kolom "Link Affiliate" kosong.');
 
-      console.log(`  -> post Utas 1: ${judul}`);
-      const id1 = await publishText(threads, { text });
-      console.log(`     OK Utas 1 -> media ${id1}`);
-      await write(sheets, headerMap, rowNum, C.POST_ID_1, id1);
-      await setStatus(S.UTAS1_DONE);
-      await setCatatan(`Utas 1 published ${id1} @ ${new Date().toISOString()}`);
-      return;
+    // ---- Utas 1 ----
+    if (!id1) {
+      console.log(`  -> Utas 1: ${judul}`);
+      id1 = await publishText(threads, { text: t1 });
+      await set(C.POST_ID_1, id1);
+      console.log(`     OK Utas 1 = ${id1}`);
+    } else {
+      console.log(`  (skip Utas 1 — sudah ada ${id1})`);
     }
 
-    // ---- Step 2: UTAS 2 ----
-    if (status === S.UTAS1_DONE && String(row[C.POST_ID_1] || "").trim() && !String(row[C.POST_ID_2] || "").trim()) {
-      const jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
-      const ts1 = await threads.getMediaTimestamp(String(row[C.POST_ID_1]).trim()).catch(() => null);
-      const elapsed = minutesSince(ts1);
-      if (elapsed < jeda) {
-        console.log(`  (tunggu) ${judul}: jeda Utas 2 ${elapsed.toFixed(1)}/${jeda} menit.`);
-        return;
-      }
-      const text = applyPlaceholders(block.utas2, { brand });
-      assertLen("Utas 2", text);
-      const images = await findImagesForTitle(drive, judul);
-      console.log(`  -> post Utas 2: ${judul} (${images.length} gambar)`);
-
-      const id2 = await publishWithImages(threads, {
-        text,
-        images,
-        replyToId: String(row[C.POST_ID_1]).trim(),
-      });
-      console.log(`     OK Utas 2 -> media ${id2}`);
-      await write(sheets, headerMap, rowNum, C.POST_ID_2, id2);
-      await setStatus(S.UTAS2_DONE);
-      await setCatatan(`Utas 2 published ${id2} (${images.length} gambar)`);
-      return;
+    // ---- Jeda ----
+    if (!id2) {
+      console.log(`  ... tunggu ${jeda} menit sebelum Utas 2`);
+      if (!isDryRun()) await sleep(jeda * 60 * 1000);
     }
 
-    // ---- Step 3: REPLY LINK ----
-    if (status === S.UTAS2_DONE && String(row[C.POST_ID_2] || "").trim() && !String(row[C.POST_ID_REPLY] || "").trim()) {
-      const link = resolveLink(row);
-      if (!link) throw new Error("Link Affiliate kosong.");
-      const text = applyPlaceholders(block.reply, { brand, link });
-      assertLen("Reply link", text);
-
-      console.log(`  -> post Reply link: ${judul}`);
-      const idR = await publishText(threads, { text, replyToId: String(row[C.POST_ID_2]).trim() });
-      console.log(`     OK Reply -> media ${idR}`);
-      await write(sheets, headerMap, rowNum, C.POST_ID_REPLY, idR);
-      await setStatus(S.PUBLISHED);
-      await setCatatan(`Selesai. Reply link ${idR}`);
-      return;
+    // ---- Utas 2 (reply ke Utas 1, + gambar) ----
+    if (!id2) {
+      const images = await findImagesForTitle(drive, judul).catch(() => []);
+      console.log(`  -> Utas 2: ${judul} (${images.length} gambar)`);
+      id2 = await publishWithImages(threads, { text: t2, images, replyToId: id1 });
+      await set(C.POST_ID_2, id2);
+      console.log(`     OK Utas 2 = ${id2}`);
+    } else {
+      console.log(`  (skip Utas 2 — sudah ada ${id2})`);
     }
+
+    // ---- Reply link (reply ke Utas 2) ----
+    if (!idR) {
+      console.log(`  -> Reply link: ${judul}`);
+      idR = await publishText(threads, { text: tR, replyToId: id2 });
+      await set(C.POST_ID_REPLY, idR);
+      console.log(`     OK Reply = ${idR}`);
+    } else {
+      console.log(`  (skip Reply — sudah ada ${idR})`);
+    }
+
+    await set(C.STATUS, S.DONE);
+    await set(C.CATATAN, `${S.DONE} ${new Date().toISOString()} — utas1 ${id1} · utas2 ${id2} · reply ${idR}`);
+    console.log(`  SELESAI ${judul} -> STATUS "${S.DONE}"`);
   } catch (e) {
-    console.log(`  GAGAL ${judul}: ${e.message}`);
-    await setStatus(S.ERROR).catch(() => {});
-    await setCatatan(`Error: ${e.message}`).catch(() => {});
+    const done = [
+      id1 && `utas1 ${id1}`,
+      id2 && `utas2 ${id2}`,
+      idR && `reply ${idR}`,
+    ].filter(Boolean).join(" · ");
+    console.log(`  GAGAL ${judul}: ${e.message}${done ? ` (sudah keposting: ${done})` : ""}`);
+    await set(C.STATUS, S.ERROR).catch(() => {});
+    await set(C.CATATAN, `Error: ${e.message}${done ? ` | sudah keposting: ${done} — kosongkan POST ID & set "Acc" buat ulang` : ""}`).catch(() => {});
   }
 }
 
-async function runPublish({ sheets, drive, docs, threads }) {
-  const doc = await docs.documents.get({ documentId: CONFIG.CONTENT_DOC_ID }).then((r) => r.data);
-  const blocks = parseContentDoc(doc);
-  const blockByJudul = new Map(blocks.map((b) => [normKey(b.judul), b]));
-
+async function runPublish({ sheets, drive, threads }) {
   const headerMap = await getHeaderColumnMap(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, HR);
-  const { rows } = await readSheetAsObjects(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, HR);
+  const { headers, rows } = await readSheetAsObjects(
+    sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, HR
+  );
 
-  const actionable = new Set([S.READY, S.UTAS1_DONE, S.UTAS2_DONE]);
-  const todo = rows.filter((r) => actionable.has(String(r[C.STATUS] || "").trim()));
-  console.log(`${todo.length} baris actionable.`);
-
-  for (const row of todo) {
-    const block = blockByJudul.get(normKey(row[C.JUDUL]));
-    if (!block) {
-      console.log(`  (skip) "${row[C.JUDUL]}" tidak ketemu di Docs.`);
-      continue;
-    }
-    await processRow(row, block, { sheets, drive, threads, headerMap });
+  const need = [C.JUDUL, C.STATUS, C.UTAS1, C.UTAS2, C.REPLY, C.LINK];
+  const missing = need.filter((c) => !headers.includes(c));
+  if (missing.length) {
+    throw new Error(`Kolom wajib tidak ada di header baris ${HR}: ${missing.join(", ")}`);
   }
+
+  const ready = rows.filter(
+    (r) => String(r[C.STATUS] || "").trim().toLowerCase() === S.READY.toLowerCase()
+  );
+  const actionable = ready.filter((r) => jamThreadsPassed(r[C.JAM]));
+  console.log(`${ready.length} baris "Acc" — ${actionable.length} sudah lewat Jam Threads.`);
+  if (!actionable.length) {
+    console.log("Tidak ada yang diproses run ini.");
+    return;
+  }
+
+  // Satu baris per run, urut paling awal jamnya.
+  actionable.sort((a, b) => (jamToMinutes(a[C.JAM]) ?? 0) - (jamToMinutes(b[C.JAM]) ?? 0));
+  const row = actionable[0];
+  console.log(`Proses baris ${row._rowNumber}: "${row[C.JUDUL]}"`);
+  await publishRow(row, { sheets, drive, threads, headerMap });
   console.log("Selesai proses publish.");
 }
 
 module.exports = {
   runPublish,
+  publishRow,
   applyPlaceholders,
   resolveLink,
   stripInstructionLines,

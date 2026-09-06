@@ -1,20 +1,18 @@
 /**
- * preview.js — tampilkan persis apa yang AKAN diposting untuk tiap baris actionable.
- * Tidak posting, tidak nulis apa pun.
+ * preview.js — tampilkan persis apa yang AKAN diposting untuk tiap baris "Acc".
+ * Tidak posting, tidak nulis apa pun. Semua teks dibaca dari kolom Sheet.
  *
  *   npm run preview
  */
 
 const { getGoogleAuthClients } = require("../src/lib/googleAuth");
 const { CONFIG, assertCoreConfig } = require("../src/lib/config");
-const { parseContentDoc } = require("../src/lib/docsReader");
 const { readSheetAsObjects } = require("../src/lib/sheetsHelper");
 const { findImagesForTitle } = require("../src/lib/driveFinder");
-const { applyPlaceholders, resolveLink, jamDisplay } = require("../src/lib/publishThreads");
+const { applyPlaceholders, resolveLink, jamDisplay, jamThreadsPassed } = require("../src/lib/publishThreads");
 
 const C = CONFIG.COL;
 const S = CONFIG.STATUS;
-const normKey = (s) => String(s || "").trim().toLowerCase();
 
 function box(label, text) {
   const len = [...text].length;
@@ -26,42 +24,41 @@ function box(label, text) {
 
 (async () => {
   assertCoreConfig();
-  const { sheets, drive, docs } = await getGoogleAuthClients();
+  const { sheets, drive } = await getGoogleAuthClients();
 
-  const doc = await docs.documents.get({ documentId: CONFIG.CONTENT_DOC_ID }).then((r) => r.data);
-  const blocks = new Map(parseContentDoc(doc).map((b) => [normKey(b.judul), b]));
-
-  const { rows } = await readSheetAsObjects(
+  const { headers, rows } = await readSheetAsObjects(
     sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
   );
-  const actionable = new Set([S.READY, S.UTAS1_DONE, S.UTAS2_DONE]);
-  const todo = rows.filter((r) => actionable.has(String(r[C.STATUS] || "").trim()));
+  const need = [C.JUDUL, C.STATUS, C.UTAS1, C.UTAS2, C.REPLY, C.LINK];
+  const missing = need.filter((c) => !headers.includes(c));
+  if (missing.length) {
+    console.log(`✗ Kolom wajib hilang di header baris ${CONFIG.HEADER_ROW}: ${missing.join(", ")}`);
+    process.exit(1);
+  }
 
-  console.log(`=== PREVIEW — ${todo.length} baris actionable ===`);
+  const todo = rows.filter((r) => String(r[C.STATUS] || "").trim().toLowerCase() === S.READY.toLowerCase());
+  console.log(`=== PREVIEW — ${todo.length} baris "Acc" ===`);
+
   for (const row of todo) {
     const judul = String(row[C.JUDUL] || "").trim();
-    const block = blocks.get(normKey(judul));
-    console.log(`\n\n### ${judul}   [STATUS: ${row[C.STATUS]}]`);
-    if (!block) {
-      console.log(`  ✗ tidak ada blok "JUDUL: ${judul}" di Doc — baris ini akan di-skip.`);
-      continue;
-    }
     const brand = String(row[C.BRAND] || "").trim();
     const link = resolveLink(row);
     const jam = jamDisplay(row[C.JAM]);
     const jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
     const images = await findImagesForTitle(drive, judul).catch(() => []);
+    const passed = jamThreadsPassed(row[C.JAM]);
 
-    console.log(`  brand=${brand || "-"}  jam=${jam}  jeda Utas2=${jeda}m  link=${link || "-"}`);
+    console.log(`\n\n### ${judul}   [baris ${row._rowNumber}]`);
+    console.log(`  brand=${brand || "-"}  jam=${jam} ${passed ? "(sudah lewat)" : "(BELUM — nunggu)"}  jeda Utas2=${jeda}m  link=${link || "-"}`);
     if (!brand) console.log(`  ! Brand/Produk kosong — "[Brand/Produk]" tidak akan ke-replace`);
     if (!link) console.log(`  ! Link Affiliate kosong — reply link akan GAGAL`);
 
-    box("UTAS 1 (hook, text)", applyPlaceholders(block.utas1, { brand }));
+    box("UTAS 1 (hook, text)", applyPlaceholders(row[C.UTAS1], { brand, link }));
     const imgNote = images.length
       ? `${images.length} gambar: ${images.map((i) => i.name).join(", ")}${images.length >= 2 ? " (carousel)" : ""}`
       : "0 gambar → text-only";
-    box(`UTAS 2 (produk) — ${imgNote}`, applyPlaceholders(block.utas2, { brand }));
-    box("REPLY (link)", applyPlaceholders(block.reply, { brand, link }));
+    box(`UTAS 2 (produk) — ${imgNote}`, applyPlaceholders(row[C.UTAS2], { brand, link }));
+    box("REPLY (link)", applyPlaceholders(row[C.REPLY], { brand, link }));
   }
   console.log("\n=== selesai preview (tidak ada yang diposting) ===");
 })().catch((e) => {

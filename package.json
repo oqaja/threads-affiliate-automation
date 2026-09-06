@@ -2,7 +2,7 @@
   "name": "threads-affiliate-automation",
   "version": "1.0.0",
   "private": true,
-  "description": "Threads affiliate automation — sync konten dari Google Docs, auto-post 3 utas berantai (hook / produk+gambar / reply link) ke Threads, tarik insights. Jalan di GitHub Actions.",
+  "description": "Threads affiliate automation — 1 sumber data (Google Sheet 'JADWAL THREADS'), auto-post 3 utas berantai (hook / produk+gambar / reply link) ke Threads, tarik insights. Jalan di GitHub Actions.",
   "type": "commonjs",
   "engines": {
     "node": ">=20"
@@ -12,14 +12,11 @@
     "preview": "node --env-file-if-exists=.env scripts/preview.js",
     "set-cell": "node --env-file-if-exists=.env scripts/set-cell.js",
     "delete-column": "node --env-file-if-exists=.env scripts/delete-column.js",
-    "sync": "node --env-file-if-exists=.env scripts/run-sync.js",
     "publish": "node --env-file-if-exists=.env scripts/run-publish.js",
     "insights": "node --env-file-if-exists=.env scripts/run-insights.js",
     "get-token": "node --env-file-if-exists=.env scripts/get-threads-token.js",
     "test": "node --test",
-    "doc-dump": "node --env-file-if-exists=.env scripts/doc-dump.js",
-    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js",
-    "build:dashboard": "node --env-file-if-exists=.env scripts/build-dashboard-data.js"
+    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js"
   },
   "dependencies": {
     "googleapis": "^140.0.1",

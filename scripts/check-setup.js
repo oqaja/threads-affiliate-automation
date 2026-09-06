@@ -5,21 +5,20 @@
  *
  * Yang dicek:
  *   1. Service account creds ke-load
- *   2. Google Docs  : baca Doc konten + parse blok
- *   3. Google Sheets: baca tracker, cek header, tes tulis (no-op ke A1)
- *   4. Google Drive : list folder gambar + cek sharing publik
- *   5. Threads API  : validasi token (/me)
- *   6. Cross-check  : tiap blok Doc -> ada baris di Sheet? ada gambar di Drive?
+ *   2. Google Sheets: baca tab "JADWAL THREADS", cek header lengkap, tes tulis (no-op)
+ *   3. Google Drive : list folder gambar + cek sharing publik
+ *   4. Threads API  : validasi token (/me)
+ *   5. Per baris "Acc": teks Utas 1/2/Reply keisi + panjang OK, gambar ada berapa
  */
 
 const { getGoogleAuthClients, getServiceAccountEmail } = require("../src/lib/googleAuth");
 const { CONFIG, assertCoreConfig } = require("../src/lib/config");
-const { parseContentDoc } = require("../src/lib/docsReader");
-const { readSheetAsObjects } = require("../src/lib/sheetsHelper");
+const { readSheetAsObjects, columnNumberToLetter } = require("../src/lib/sheetsHelper");
 const { listImagesInFolder, findImagesForTitle } = require("../src/lib/driveFinder");
-const { extractLines } = require("../src/lib/docsReader");
+const { applyPlaceholders, resolveLink, jamDisplay } = require("../src/lib/publishThreads");
 
 const C = CONFIG.COL;
+const S = CONFIG.STATUS;
 let problems = 0;
 const ok = (m) => console.log(`  ✓ ${m}`);
 const bad = (m) => {
@@ -28,60 +27,24 @@ const bad = (m) => {
 };
 const warn = (m) => console.log(`  ! ${m}`);
 
+const ALL_COLS = Object.values(C);
+
 (async () => {
   console.log("=== Threads Affiliate — preflight ===\n");
   assertCoreConfig();
-  ok(`Config: Doc=${CONFIG.CONTENT_DOC_ID.slice(0, 8)}… Sheet=${CONFIG.TRACKER_SPREADSHEET_ID.slice(0, 8)}… Folder=${CONFIG.DRIVE_IMAGE_FOLDER_ID.slice(0, 8)}…`);
+  ok(`Config: Sheet=${CONFIG.TRACKER_SPREADSHEET_ID.slice(0, 8)}… Folder=${CONFIG.DRIVE_IMAGE_FOLDER_ID.slice(0, 8)}… Tab="${CONFIG.SHEET_NAME}" (header baris ${CONFIG.HEADER_ROW})`);
 
-  const { sheets, drive, docs } = await getGoogleAuthClients();
+  const { sheets, drive } = await getGoogleAuthClients();
 
-  // 2. Docs
-  let blocks = [];
-  console.log("\n[Google Docs]");
-  try {
-    const doc = await docs.documents.get({ documentId: CONFIG.CONTENT_DOC_ID }).then((r) => r.data);
-    blocks = parseContentDoc(doc);
-    ok(`Baca Doc "${doc.title}" — ${blocks.length} blok konten valid`);
-    if (blocks.length === 0) {
-      const lines = extractLines(doc).filter((l) => l.trim() !== "");
-      warn(`Doc tidak match format template. ${lines.length} baris terisi. 40 baris pertama:`);
-      lines.slice(0, 40).forEach((l, i) => console.log(`      ${String(i + 1).padStart(2)}| ${l.slice(0, 100)}`));
-      console.log(`      (parser butuh baris label "Judul Konten" + marker "--- UTAS 1 (Hook) ---" dll — lihat docs/Template_Konten...)`);
-    }
-    blocks.forEach((b) =>
-      console.log(
-        `      • ${b.judul}  [${b.pilar || "-"}]  jam ${b.jamThreads || "-"}  ` +
-          `utas1:${b.utas1.length}c utas2:${b.utas2.length}c reply:${b.reply.length}c`
-      )
-    );
-    for (const b of blocks) {
-      for (const [label, text] of [["Utas 1", b.utas1], ["Utas 2", b.utas2], ["Reply", b.reply]]) {
-        if (!text) bad(`"${b.judul}" — ${label} kosong`);
-        else if (text.length > CONFIG.THREADS_MAX_TEXT) bad(`"${b.judul}" — ${label} ${text.length}c > ${CONFIG.THREADS_MAX_TEXT}`);
-      }
-    }
-  } catch (e) {
-    bad(`Gagal baca Doc: ${e.message}`);
-  }
-
-  // 3. Sheets
+  // 2. Sheets
   console.log("\n[Google Sheets]");
   let sheetRows = [];
+  let sheetHeaders = [];
   try {
     const meta = await sheets.spreadsheets.get({ spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID });
     const tabs = (meta.data.sheets || []).map((s) => s.properties.title);
     console.log(`      tab yang ada: ${tabs.map((t) => `"${t}"`).join(", ")}`);
-    for (const t of tabs) {
-      const r = await sheets.spreadsheets.values.get({
-        spreadsheetId: CONFIG.TRACKER_SPREADSHEET_ID,
-        range: `'${t}'!A1:Z3`,
-      });
-      const grid = r.data.values || [];
-      grid.forEach((row, i) => console.log(`      "${t}" row ${i + 1}: ${JSON.stringify(row)}`));
-    }
-    if (!tabs.includes(CONFIG.SHEET_NAME)) {
-      warn(`Tab "${CONFIG.SHEET_NAME}" belum ada — akan dibuat otomatis + header saat "npm run sync" pertama.`);
-    }
+    if (!tabs.includes(CONFIG.SHEET_NAME)) bad(`Tab "${CONFIG.SHEET_NAME}" tidak ada.`);
   } catch (e) {
     bad(`Gagal baca metadata spreadsheet: ${e.message}`);
   }
@@ -90,14 +53,18 @@ const warn = (m) => console.log(`  ! ${m}`);
       sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
     );
     sheetRows = rows;
-    ok(`Baca tab "${CONFIG.SHEET_NAME}" (header baris ${CONFIG.HEADER_ROW}) — ${rows.length} baris data`);
-    const need = [C.JUDUL, C.STATUS, C.LINK, C.JEDA_UTAS2, C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY, C.VIEWS_1];
+    sheetHeaders = headers;
+    ok(`Baca tab "${CONFIG.SHEET_NAME}" — ${rows.length} baris data`);
+
+    const need = [C.JUDUL, C.STATUS, C.LINK, C.UTAS1, C.UTAS2, C.REPLY, C.JEDA_UTAS2, C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY];
     const missing = need.filter((h) => !headers.includes(h));
-    if (missing.length) bad(`Header kurang di baris ${CONFIG.HEADER_ROW}: ${missing.join(", ")}`);
-    else ok("Header inti lengkap");
+    if (missing.length) bad(`Header wajib kurang di baris ${CONFIG.HEADER_ROW}: ${missing.join(", ")}`);
+    else ok("Header inti lengkap (Judul, STATUS, Link, Utas 1/2, Reply, Jeda, POST ID x3)");
+
+    const unknownExpected = ALL_COLS.filter((h) => !headers.includes(h));
+    if (unknownExpected.length) warn(`Kolom yang dikenal script tapi tidak ada di Sheet (opsional): ${unknownExpected.join(", ")}`);
 
     // Tes tulis: tulis balik nilai header JUDUL ke sel-nya sendiri (tidak mengubah apa pun).
-    const { columnNumberToLetter } = require("../src/lib/sheetsHelper");
     const judulCol = headers.indexOf(C.JUDUL) + 1;
     if (judulCol > 0) {
       try {
@@ -117,19 +84,18 @@ const warn = (m) => console.log(`  ! ${m}`);
     bad(`Gagal baca Sheet (tab "${CONFIG.SHEET_NAME}"): ${e.message}`);
   }
 
-  // 4. Drive
+  // 3. Drive
   console.log("\n[Google Drive]");
-  let images = [];
   try {
-    images = await listImagesInFolder(drive);
+    const images = await listImagesInFolder(drive);
     ok(`Folder gambar OK — ${images.length} file gambar`);
     try {
-      const meta = await drive.files.get({
+      const dm = await drive.files.get({
         fileId: CONFIG.DRIVE_IMAGE_FOLDER_ID,
         fields: "id,name,permissions(type,role)",
         supportsAllDrives: true,
       });
-      const anyone = (meta.data.permissions || []).some((p) => p.type === "anyone");
+      const anyone = (dm.data.permissions || []).some((p) => p.type === "anyone");
       if (anyone) ok('Folder di-share "Anyone with the link" — Threads bisa fetch gambar');
       else warn('Folder BELUM "Anyone with the link". Threads API tidak akan bisa fetch gambar — set share ke publik (Viewer).');
     } catch {
@@ -139,7 +105,7 @@ const warn = (m) => console.log(`  ! ${m}`);
     bad(`Gagal akses folder Drive: ${e.message}`);
   }
 
-  // 5. Threads
+  // 4. Threads
   console.log("\n[Threads API]");
   const userId = process.env.THREADS_USER_ID;
   const token = process.env.THREADS_ACCESS_TOKEN;
@@ -160,19 +126,31 @@ const warn = (m) => console.log(`  ! ${m}`);
     }
   }
 
-  // 6. Cross-check
-  console.log("\n[Cross-check Doc ↔ Sheet ↔ Drive]");
-  const sheetByJudul = new Map(sheetRows.map((r) => [String(r[C.JUDUL] || "").trim().toLowerCase(), r]));
-  for (const b of blocks) {
-    const key = b.judul.toLowerCase();
-    const row = sheetByJudul.get(key);
-    const imgs = await findImagesForTitle(drive, b.judul).catch(() => []);
-    const rowStr = row ? `Sheet: baris ${row._rowNumber}, STATUS "${row[C.STATUS] || "(kosong)"}"` : "Sheet: BELUM ADA (akan di-append saat sync)";
-    const imgStr = imgs.length ? `${imgs.length} gambar (${imgs.map((i) => i.name).join(", ")})` : "0 gambar → Utas 2 jadi text-only";
-    const ids = row
-      ? [C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY].map((c) => `${c}=${row[c] || "-"}`).join("  ")
-      : "";
-    console.log(`   • ${b.judul}\n       ${rowStr}\n       ${imgStr}${ids ? `\n       ${ids}` : ""}`);
+  // 5. Per baris "Acc"
+  if (sheetHeaders.length) {
+    console.log(`\n[Baris siap publish — STATUS "${S.READY}"]`);
+    const ready = sheetRows.filter((r) => String(r[C.STATUS] || "").trim().toLowerCase() === S.READY.toLowerCase());
+    if (!ready.length) console.log(`      (belum ada baris "${S.READY}" — isi manual di Google Sheets pas mau dijadwalkan)`);
+    for (const row of ready) {
+      const judul = String(row[C.JUDUL] || "").trim();
+      const brand = String(row[C.BRAND] || "").trim();
+      const link = resolveLink(row);
+      const imgs = await findImagesForTitle(drive, judul).catch(() => []);
+      const parts = [
+        ["Utas 1", applyPlaceholders(row[C.UTAS1], { brand, link })],
+        ["Utas 2", applyPlaceholders(row[C.UTAS2], { brand, link })],
+        ["Reply", applyPlaceholders(row[C.REPLY], { brand, link })],
+      ];
+      console.log(`   • ${judul}  (baris ${row._rowNumber})  jam ${jamDisplay(row[C.JAM])}`);
+      for (const [label, text] of parts) {
+        if (!text) bad(`     ${judul} — ${label} kosong`);
+        else if (text.length > CONFIG.THREADS_MAX_TEXT) bad(`     ${judul} — ${label} ${text.length}c > ${CONFIG.THREADS_MAX_TEXT}`);
+        else console.log(`     ${label}: ${text.length}c`);
+      }
+      if (!link) bad(`     ${judul} — Link Affiliate kosong`);
+      if (!brand && (parts.some(([, t]) => t.includes("[Brand/Produk]")))) warn(`     ${judul} — Brand/Produk kosong tapi teks masih ada "[Brand/Produk]"`);
+      console.log(`     gambar: ${imgs.length ? imgs.map((i) => i.name).join(", ") : "0 → Utas 2 text-only"}`);
+    }
   }
 
   console.log(`\n  service account: ${getServiceAccountEmail()}`);

@@ -34,14 +34,12 @@ async function getGoogleAuthClients() {
     scopes: [
       "https://www.googleapis.com/auth/spreadsheets",
       "https://www.googleapis.com/auth/drive.readonly",
-      "https://www.googleapis.com/auth/documents.readonly",
     ],
   });
   const client = await auth.getClient();
   return {
     sheets: google.sheets({ version: "v4", auth: client }),
     drive: google.drive({ version: "v3", auth: client }),
-    docs: google.docs({ version: "v1", auth: client }),
   };
 }
 
