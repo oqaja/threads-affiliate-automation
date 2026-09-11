@@ -110,6 +110,42 @@ function toSheetDateString(date, timezone = "Asia/Jakarta") {
   return `${get("year")}-${get("month")}-${get("day")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
 
+/** Ambil {year, month, day} dari cell Tanggal (serial number ATAU string 
+"DD/MM/YYYY"). null kalau kosong/invalid. */
+function parseDatePartsFromCell(tanggalCell) {
+  if (tanggalCell === "" || tanggalCell == null) return null;
+  if (isSheetsSerialNumber(tanggalCell)) {
+    const d = serialToDate(tanggalCell);
+    return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: 
+d.getUTCDate() };
+  }
+  const raw = String(tanggalCell).trim();
+  if (!raw) return null;
+  const parts = raw.split(/[\/\-]/);
+  if (parts.length !== 3) return null;
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
+  if ([year, month, day].some((n) => isNaN(n))) return null;
+  return { year, month, day };
+}
+
+/**
+ * Tanggal Upload sudah sampai (hari ini) atau sudah lewat, dibanding 
+"now" di timezone tsb?
+ * Kosong/invalid = anggap BELUM due (jangan publish sebelum tanggal
+di-set eksplisit).
+ */
+function tanggalUploadDue(tanggalCell, now, timezone) {
+  const cellParts = parseDatePartsFromCell(tanggalCell);
+  if (!cellParts) return false; // kosong/invalid = BELUM due (jangan publish sebelum tanggal di-set eksplisit)
+  const nowParts = getDatePartsInTimezone(now, timezone);
+  const cellUTC = Date.UTC(cellParts.year, cellParts.month, 
+cellParts.day);
+  const nowUTC = Date.UTC(nowParts.year, nowParts.month, nowParts.day);
+  return cellUTC <= nowUTC;
+}
+
 module.exports = {
   isSheetsSerialNumber,
   serialToDate,
@@ -118,4 +154,6 @@ module.exports = {
   isSameDateInTimezone,
   getDatePartsInTimezone,
   toSheetDateString,
+  parseDatePartsFromCell,
+  tanggalUploadDue,
 };
