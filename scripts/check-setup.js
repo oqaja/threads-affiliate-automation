@@ -56,10 +56,10 @@ const ALL_COLS = Object.values(C);
     sheetHeaders = headers;
     ok(`Baca tab "${CONFIG.SHEET_NAME}" — ${rows.length} baris data`);
 
-    const need = [C.JUDUL, C.STATUS, C.LINK, C.UTAS1, C.UTAS2, C.REPLY, C.JEDA_UTAS2, C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY];
+    const need = [C.JUDUL, C.STATUS, C.LINK, C.UTAS1, C.UTAS2, C.REPLY, C.POST_ID_1, C.POST_ID_2, C.POST_ID_REPLY];
     const missing = need.filter((h) => !headers.includes(h));
     if (missing.length) bad(`Header wajib kurang di baris ${CONFIG.HEADER_ROW}: ${missing.join(", ")}`);
-    else ok("Header inti lengkap (Judul, STATUS, Link, Utas 1/2, Reply, Jeda, POST ID x3)");
+    else ok("Header inti lengkap (Judul, STATUS, Link, Utas 1/2, Reply, POST ID x3)");
 
     const unknownExpected = ALL_COLS.filter((h) => !headers.includes(h));
     if (unknownExpected.length) warn(`Kolom yang dikenal script tapi tidak ada di Sheet (opsional): ${unknownExpected.join(", ")}`);

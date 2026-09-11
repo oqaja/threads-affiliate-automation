@@ -11,9 +11,10 @@
  *   STATUS "Acc" + (Jam Threads sudah lewat)  ->  post 3 utas berantai  ->  STATUS "Uploaded"
  *   error di step mana pun                     ->  STATUS "Gagal" + Catatan
  *
- * Jeda Utas 1 -> Utas 2 = kolom "Jeda Utas 2 (menit)" (default 5), pakai sleep
- * dalam proses. Satu run memproses SATU baris (biar durasi job terbatas & rapi
- * buat rate limit); baris berikutnya diproses run cron selanjutnya.
+ * Jeda Utas 1 -> Utas 2 = acak 1-2 menit per-run (CONFIG.JEDA_UTAS2_MIN/MAX_MENIT),
+ * pakai sleep dalam proses. Kolom Sheet "Jeda Utas 2 (menit)" tidak dipakai lagi.
+ * Satu run memproses SATU baris (biar durasi job terbatas & rapi buat rate limit);
+ * baris berikutnya diproses run cron selanjutnya.
  *
  * Placeholder yang di-replace runtime: [Brand/Produk] -> kolom Brand/Produk,
  * [Link Affiliate] -> kolom Link Affiliate (apa adanya).
@@ -21,7 +22,8 @@
 
 const { CONFIG } = require("./config");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue } = require("./sheetsHelper");
-const { getDatePartsInTimezone } = require("./dateUtils");
+const { getDatePartsInTimezone, tanggalUploadDue } = 
+require("./dateUtils");
 const { findImagesForTitle } = require("./driveFinder");
 const { isDryRun } = require("./env");
 const { sleep } = require("./threadsClient");
@@ -109,6 +111,13 @@ function assertLen(label, text) {
   }
 }
 
+/** Jeda Utas 1 -> Utas 2 (menit): acak per-run antara MIN & MAX. Bisa pecahan. */
+function randomJedaMenit() {
+  const lo = CONFIG.JEDA_UTAS2_MIN_MENIT;
+  const hi = CONFIG.JEDA_UTAS2_MAX_MENIT;
+  return lo + Math.random() * (hi - lo);
+}
+
 async function writeCell(sheets, headerMap, rowNumber, col, value) {
   if (!headerMap[col]) return;
   if (isDryRun()) {
@@ -174,11 +183,7 @@ async function publishRow(row, ctx) {
   const brand = String(row[C.BRAND] || "").trim();
   const link = resolveLink(row);
 
-  let jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
-  if (jeda > CONFIG.MAX_JEDA_SLEEP_MENIT) {
-    console.log(`  (info) Jeda ${jeda}m dibatasi ke ${CONFIG.MAX_JEDA_SLEEP_MENIT}m.`);
-    jeda = CONFIG.MAX_JEDA_SLEEP_MENIT;
-  }
+  const jeda = randomJedaMenit();
 
   const set = (col, v) => writeCell(sheets, headerMap, rowNum, col, v);
 
@@ -207,8 +212,8 @@ async function publishRow(row, ctx) {
 
     // ---- Jeda ----
     if (!id2) {
-      console.log(`  ... tunggu ${jeda} menit sebelum Utas 2`);
-      if (!isDryRun()) await sleep(jeda * 60 * 1000);
+      console.log(`  ... tunggu ${jeda.toFixed(1)} menit sebelum Utas 2`);
+      if (!isDryRun()) await sleep(Math.round(jeda * 60 * 1000));
     }
 
     // ---- Utas 2 (reply ke Utas 1, + gambar) ----
@@ -259,11 +264,17 @@ async function runPublish({ sheets, drive, threads }) {
     throw new Error(`Kolom wajib tidak ada di header baris ${HR}: ${missing.join(", ")}`);
   }
 
-  const ready = rows.filter(
-    (r) => String(r[C.STATUS] || "").trim().toLowerCase() === S.READY.toLowerCase()
+    const ready = rows.filter(
+    (r) => String(r[C.STATUS] || "").trim().toLowerCase() === 
+S.READY.toLowerCase()
   );
-  const actionable = ready.filter((r) => jamThreadsPassed(r[C.JAM]));
-  console.log(`${ready.length} baris "Acc" — ${actionable.length} sudah lewat Jam Threads.`);
+  const now = new Date();
+  const actionable = ready.filter(
+    (r) => tanggalUploadDue(r[C.TANGGAL], now, CONFIG.TIMEZONE) && 
+jamThreadsPassed(r[C.JAM])
+  );
+  console.log(`${ready.length} baris "Acc" — ${actionable.length} sudah 
+masuk Tanggal Upload & lewat Jam Threads.`);
   if (!actionable.length) {
     console.log("Tidak ada yang diproses run ini.");
     return;
@@ -286,4 +297,5 @@ module.exports = {
   jamToMinutes,
   jamThreadsPassed,
   jamDisplay,
+  randomJedaMenit,
 };

@@ -24,8 +24,10 @@ const CONFIG = {
   // Google Sheet = SATU-SATUNYA sumber: metadata + draft teks + approval + hasil.
   TRACKER_SPREADSHEET_ID: envOr(["THREADS_TRACKER_SPREADSHEET_ID", "SHEET_ID"], ""),
   SHEET_NAME: envOr(["THREADS_SHEET_NAME", "SHEET_NAME"], "JADWAL THREADS"),
+  BRIEF_SHEET_NAME: envOr(["THREADS_BRIEF_SHEET_NAME", "BRIEF_SHEET_NAME"], "BRIEF PRODUK"),
   // Header di baris 3 (baris 1 = legend warna, baris 2 = label grup kolom).
   HEADER_ROW: Number(envOr(["THREADS_HEADER_ROW", "HEADER_ROW"], "3")) || 3,
+  BRIEF_HEADER_ROW: Number(envOr(["THREADS_BRIEF_HEADER_ROW", "BRIEF_HEADER_ROW"], "1")) || 1,
 
   // Folder Drive berisi gambar. Nama file: "<Judul Konten> 1.jpg", "<Judul Konten> 2.jpg", dst.
   // Folder ini HARUS di-share "anyone with the link can view" supaya Threads API bisa fetch gambarnya.
@@ -62,6 +64,22 @@ const CONFIG = {
     REPLY_RATE: "Reply Rate (%)",
   },
 
+
+  // --- Kolom Sheet "BRIEF PRODUK" ---
+    BRIEF_COL: {
+    JUDUL: "Judul Konten",
+    JUMLAH_ANGLE: "Jumlah Angle",
+    BRAND: "Brand/Produk",
+    SELLING_POINT: "Selling Point / Kelebihan Utama",
+    HARGA: "Harga",
+    MASALAH: "Masalah yang Diselesaikan",
+    MOMEN: "Momen/Skenario Pakai",
+    BAHAN_SPEK: "Bahan & Spek Teknis",
+    VISUAL: "Ciri Visual/Vibe Desain",
+    LINK: "Link Affiliate",
+    STATUS_BRIEF: "Status Brief",
+  },
+
   // --- Nilai STATUS THREADS ---
   STATUS: {
     READY: "Acc", // siap diproses (diisi manual setelah approval, dari Google Sheets app di HP)
@@ -69,9 +87,15 @@ const CONFIG = {
     ERROR: "Gagal", // ada step yang gagal — cek kolom Catatan
   },
 
-  DEFAULT_JEDA_UTAS2_MENIT: 5,
-  // Batas atas sleep dalam-proses antara Utas 1 -> Utas 2 (jaga-jaga isi kolom kegedean).
-  MAX_JEDA_SLEEP_MENIT: 30,
+  // --- Nilai Status Brief (tab BRIEF PRODUK) ---
+  BRIEF_STATUS: {
+    DONE: "Diproses", // sudah digenerate jadi baris JADWAL THREADS, jangan diproses ulang
+  },
+
+  // Jeda Utas 1 -> Utas 2: acak per-run antara MIN & MAX menit.
+  // Kolom Sheet "Jeda Utas 2 (menit)" TIDAK dipakai manual lagi.
+  JEDA_UTAS2_MIN_MENIT: 1,
+  JEDA_UTAS2_MAX_MENIT: 2,
 
   // Placeholder di teks yang di-replace otomatis saat publish.
   PLACEHOLDER: {
@@ -80,6 +104,11 @@ const CONFIG = {
   },
 
   TIMEZONE: "Asia/Jakarta",
+
+  // --- Gemini API (generate konten dari brief) ---
+  GEMINI_MODEL: envOr(["GEMINI_MODEL"], "gemini-3.6-flash"),
+  GEMINI_MIN_ANGLES: 3,
+  GEMINI_MAX_ANGLES: 5,
 
   // --- Threads API ---
   THREADS_API_BASE: "https://graph.threads.net/v1.0",
@@ -104,4 +133,10 @@ function assertCoreConfig() {
   }
 }
 
-module.exports = { CONFIG, getSecret, assertCoreConfig };
+function assertGeminiConfig() {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("Environment variable 'GEMINI_API_KEY' belum di-set. Cek .env lokal.");
+  }
+}
+
+module.exports = { CONFIG, getSecret, assertCoreConfig, assertGeminiConfig };

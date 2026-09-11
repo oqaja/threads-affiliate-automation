@@ -11,6 +11,8 @@ const { readSheetAsObjects } = require("../src/lib/sheetsHelper");
 const { findImagesForTitle } = require("../src/lib/driveFinder");
 const { applyPlaceholders, resolveLink, jamDisplay, jamThreadsPassed } = require("../src/lib/publishThreads");
 
+const JEDA_LABEL = `acak ${CONFIG.JEDA_UTAS2_MIN_MENIT}-${CONFIG.JEDA_UTAS2_MAX_MENIT}m`;
+
 const C = CONFIG.COL;
 const S = CONFIG.STATUS;
 
@@ -44,12 +46,11 @@ function box(label, text) {
     const brand = String(row[C.BRAND] || "").trim();
     const link = resolveLink(row);
     const jam = jamDisplay(row[C.JAM]);
-    const jeda = Number(row[C.JEDA_UTAS2]) || CONFIG.DEFAULT_JEDA_UTAS2_MENIT;
     const images = await findImagesForTitle(drive, judul).catch(() => []);
     const passed = jamThreadsPassed(row[C.JAM]);
 
     console.log(`\n\n### ${judul}   [baris ${row._rowNumber}]`);
-    console.log(`  brand=${brand || "-"}  jam=${jam} ${passed ? "(sudah lewat)" : "(BELUM — nunggu)"}  jeda Utas2=${jeda}m  link=${link || "-"}`);
+    console.log(`  brand=${brand || "-"}  jam=${jam} ${passed ? "(sudah lewat)" : "(BELUM — nunggu)"}  jeda Utas2=${JEDA_LABEL}  link=${link || "-"}`);
     if (!brand) console.log(`  ! Brand/Produk kosong — "[Brand/Produk]" tidak akan ke-replace`);
     if (!link) console.log(`  ! Link Affiliate kosong — reply link akan GAGAL`);
 

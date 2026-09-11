@@ -16,9 +16,11 @@
     "insights": "node --env-file-if-exists=.env scripts/run-insights.js",
     "get-token": "node --env-file-if-exists=.env scripts/get-threads-token.js",
     "test": "node --test",
-    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js"
+    "rename-tab": "node --env-file-if-exists=.env scripts/rename-tab.js",
+    "generate-from-brief": "node --env-file-if-exists=.env scripts/run-generate-from-brief.js"
   },
   "dependencies": {
+    "@google/genai": "^2.21.0",
     "googleapis": "^140.0.1",
     "libsodium-wrappers": "^0.8.4"
   }
