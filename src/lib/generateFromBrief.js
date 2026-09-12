@@ -13,7 +13,7 @@
 
 const { CONFIG } = require("./config");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue, appendRow } = require("./sheetsHelper");
-const { generateAnglesFromBrief } = require("./geminiClient");
+const { generateAnglesFromBrief, toCamelCase } = require("./geminiClient");
 const { isDryRun } = require("./env");
 
 const BC = CONFIG.BRIEF_COL;
@@ -39,6 +39,15 @@ async function processOneBrief(briefRow, ctx) {
   if (!judul) throw new Error('"Judul Konten" kosong di baris brief ini.');
   if (!link) throw new Error('"Link Affiliate" kosong di baris brief ini.');
 
+  const kategori = String(briefRow[BC.KATEGORI] || "").trim();
+  const relevantFieldKeys = kategori
+    ? CONFIG.CATEGORY_FIELDS[kategori] || CONFIG.CATEGORY_FIELDS["Lainnya"]
+    : [];
+  const categoryFields = {};
+  for (const key of relevantFieldKeys) {
+    categoryFields[toCamelCase(key)] = briefRow[BC[key]];
+  }
+
   console.log(`  -> Generate angle buat: "${judul}"`);
   const angles = await generateAnglesFromBrief({
     brand,
@@ -47,8 +56,8 @@ async function processOneBrief(briefRow, ctx) {
     harga: briefRow[BC.HARGA],
     masalah: briefRow[BC.MASALAH],
     momen: briefRow[BC.MOMEN],
-    bahanSpek: briefRow[BC.BAHAN_SPEK],
-    visual: briefRow[BC.VISUAL],
+    kategori,
+    categoryFields,
   });
   console.log(`     Gemini hasilkan ${angles.length} angle.`);
 

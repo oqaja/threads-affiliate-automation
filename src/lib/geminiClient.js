@@ -163,4 +163,4 @@ async function generateAnglesFromBrief(brief) {
   });
 }
 
-module.exports = { generateAnglesFromBrief, buildPrompt };
+module.exports = { generateAnglesFromBrief, buildPrompt, toCamelCase };
