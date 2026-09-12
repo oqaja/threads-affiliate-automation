@@ -103,7 +103,10 @@ async function getHeaderColumnMap(sheets, spreadsheetId, sheetName, headerRow = 
 }
 
 function invalidateHeaderMapCache(spreadsheetId, sheetName) {
-  headerMapCache.delete(`${spreadsheetId}::${sheetName}`);
+  const prefix = `${spreadsheetId}::${sheetName}::`;
+  for (const key of headerMapCache.keys()) {
+    if (key.startsWith(prefix)) headerMapCache.delete(key);
+  }
 }
 
 function columnNumberToLetter(col) {
@@ -158,6 +161,21 @@ async function appendRow(sheets, spreadsheetId, sheetName, rowValues) {
   );
 }
 
+async function appendRows(sheets, spreadsheetId, sheetName, rowsOfValues) {
+  if (!rowsOfValues.length) return;
+  await withRateLimitRetry(
+    () =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range: `'${sheetName}'!A1`,
+        valueInputOption: "USER_ENTERED",
+        insertDataOption: "INSERT_ROWS",
+        requestBody: { values: rowsOfValues.map(formatRowForSheets) },
+      }),
+    "appendRows"
+  );
+}
+
 async function ensureSheetWithHeaders(sheets, spreadsheetId, sheetName, headers) {
   const meta = await getSheetMeta(sheets, spreadsheetId, sheetName);
 
@@ -193,8 +211,11 @@ module.exports = {
   setCellValue,
   setRowValues,
   appendRow,
+  appendRows,
   ensureSheetWithHeaders,
   columnNumberToLetter,
   withRateLimitRetry,
   getSheetMeta,
+  invalidateHeaderMapCache,
+  invalidateSheetMetaCache,
 };

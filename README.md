@@ -133,6 +133,48 @@ Workflow:
 - `threads-insights.yml` — insights; cron `17 */3`
 - `threads-admin.yml` — maintenance Sheet (manual): `set-cell` / `delete-column` / `rename-tab`
 
+## Shopee Affiliate — conversion tracking
+
+Tab baru **"CONVERSION REPORT"** di Sheet yang sama, diisi otomatis (`scripts/run-conversion-report.js`,
+cron harian) dengan data `conversionReport` dari Shopee Affiliate Open API:
+
+| Kolom | Isi |
+|---|---|
+| `Tanggal Order` | dari response `conversionReport` |
+| `Order ID` / `Item ID` | dedup key — baris yang kombinasinya sudah ada di-skip, tidak di-append ulang |
+| `Nama Produk`, `Qty`, `Harga`, `Komisi` | dari response |
+| `Sub ID` | `{kodeProduk}\|{Row ID JADWAL THREADS}` — echo dari subId1/subId2 |
+| `Status` | `Pending` / `Validated` / `Invalid` |
+| `Tanggal Tarik` | timestamp run script (audit/debug) |
+
+**Skema Sub-ID:** `subId1` = kode produk, `subId2` = kolom **`Row ID`** (baru, ditambah ke tab
+`JADWAL THREADS`) — ID unik permanen per baris, supaya breakdown pillar/kanal/tanggal upload
+tinggal di-join balik ke `JADWAL THREADS`, tanpa duplikasi info di tag.
+
+> **Di luar scope script ini:** Shopee cuma ngembaliin subId1/subId2 kalau Link Affiliate yang
+> dipakai waktu posting SUDAH ditag pakai `sub_id1`/`sub_id2` itu pas link-nya dibuat. Penandaan
+> link (generate short link Shopee dengan sub-id, atau tempel manual) belum diimplementasi di sini.
+
+Setup:
+
+```bash
+npm run backfill-row-id     # sekali jalan: tambah kolom "Row ID" + isi baris yang kosong
+npm run shopee:introspect   # cek nama field conversionReport asli (field GraphQL belum
+                             # diverifikasi resmi — lihat catatan di src/lib/conversionReport.js)
+npm run conversion-report   # tarik manual sekali
+```
+
+Secrets tambahan buat GitHub Actions:
+
+| Secret | Isi |
+|---|---|
+| `SHOPEE_AFFILIATE_APP_ID` | App ID Shopee Affiliate Open API |
+| `SHOPEE_AFFILIATE_APP_SECRET` | Secret-nya |
+
+Workflow: `shopee-conversion-report.yml` — cron harian (`30 1 * * *` UTC = 08:30 WIB), bisa
+dipercepat lewat `cron` di file itu kalau perlu. `backfill-row-id` dan `shopee:introspect` juga
+bisa dipanggil manual lewat `threads-admin.yml`.
+
 ## Test
 
 ```bash

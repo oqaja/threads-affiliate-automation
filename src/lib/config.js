@@ -42,6 +42,7 @@ const CONFIG = {
   //   Views Utas 1 · Views Utas 2 · Reply Rate (%)
   COL: {
     TANGGAL: "Tanggal Upload", // referensi manual, tidak dipakai script
+    ROW_ID: "Row ID", // ID unik permanen per baris — dipakai sbg subId2 saat tagging Link Affiliate (Shopee conversion tracking)
     JUDUL: "Judul Konten", // matching key ke nama file gambar di Drive
     PILAR: "Pilar",
     SEGMEN: "Segmen", // referensi manual
@@ -66,18 +67,57 @@ const CONFIG = {
 
 
   // --- Kolom Sheet "BRIEF PRODUK" ---
-    BRIEF_COL: {
+  BRIEF_COL: {
     JUDUL: "Judul Konten",
-    JUMLAH_ANGLE: "Jumlah Angle",
+    KATEGORI: "Kategori Produk",
     BRAND: "Brand/Produk",
+    JUMLAH_ANGLE: "Jumlah Angle",
     SELLING_POINT: "Selling Point / Kelebihan Utama",
     HARGA: "Harga",
     MASALAH: "Masalah yang Diselesaikan",
     MOMEN: "Momen/Skenario Pakai",
-    BAHAN_SPEK: "Bahan & Spek Teknis",
-    VISUAL: "Ciri Visual/Vibe Desain",
     LINK: "Link Affiliate",
     STATUS_BRIEF: "Status Brief",
+    // --- Fashion & Wearables ---
+    BAHAN_SPEK: "Bahan & Spek Teknis",
+    VISUAL: "Ciri Visual/Vibe Desain",
+    // --- Beauty & Personal Care ---
+    KANDUNGAN: "Kandungan/Bahan Aktif",
+    TEKSTUR_AROMA: "Tekstur & Aroma",
+    CARA_PAKAI: "Cara Pakai",
+    // --- Makanan & Minuman ---
+    RASA_AROMA_TEKSTUR: "Rasa/Aroma/Tekstur",
+    KOMPOSISI: "Komposisi/Bahan Baku",
+    INFO_TAMBAHAN: "Info Tambahan",
+    // --- Rumah, Perkakas & Elektronik ---
+    FITUR_FUNGSI: "Fitur & Fungsi Utama",
+    SPESIFIKASI_TEKNIS: "Spesifikasi Teknis",
+    CARA_PAKAI_INSTALASI: "Cara Pakai/Instalasi",
+    // --- Toko/Retail Rekomendasi ---
+    KENAPA_TERPERCAYA: "Kenapa Terpercaya",
+    PRODUK_UNGGULAN: "Produk Unggulan",
+    LOKASI_AKSES: "Lokasi/Cara Akses",
+    // --- Lainnya ---
+    DETAIL_TAMBAHAN: "Detail Tambahan",
+  },
+
+  CATEGORIES: [
+    "Fashion & Wearables",
+    "Beauty & Personal Care",
+    "Makanan & Minuman",
+    "Rumah, Perkakas & Elektronik",
+    "Toko/Retail Rekomendasi",
+    "Lainnya",
+  ],
+
+  // Kolom BRIEF_COL (key) yang relevan untuk tiap kategori.
+  CATEGORY_FIELDS: {
+    "Fashion & Wearables": ["BAHAN_SPEK", "VISUAL"],
+    "Beauty & Personal Care": ["KANDUNGAN", "TEKSTUR_AROMA", "CARA_PAKAI"],
+    "Makanan & Minuman": ["RASA_AROMA_TEKSTUR", "KOMPOSISI", "INFO_TAMBAHAN"],
+    "Rumah, Perkakas & Elektronik": ["FITUR_FUNGSI", "SPESIFIKASI_TEKNIS", "CARA_PAKAI_INSTALASI"],
+    "Toko/Retail Rekomendasi": ["KENAPA_TERPERCAYA", "PRODUK_UNGGULAN", "LOKASI_AKSES"],
+    "Lainnya": ["DETAIL_TAMBAHAN"],
   },
 
   // --- Nilai STATUS THREADS ---
@@ -114,6 +154,34 @@ const CONFIG = {
   THREADS_API_BASE: "https://graph.threads.net/v1.0",
   THREADS_MAX_TEXT: 500, // limit karakter per post Threads
   THREADS_CONTAINER_TIMEOUT_S: 90,
+
+  // --- Shopee Affiliate: tab "CONVERSION REPORT" (di Sheet yang sama) ---
+  CONVERSION_SHEET_NAME: envOr(["SHOPEE_CONVERSION_SHEET_NAME"], "CONVERSION REPORT"),
+  CONVERSION_HEADER_ROW: 1,
+  CONVERSION_COL: {
+    TANGGAL_ORDER: "Tanggal Order",
+    ORDER_ID: "Order ID",
+    ITEM_ID: "Item ID",
+    NAMA_PRODUK: "Nama Produk",
+    SUB_ID: "Sub ID", // format "{kodeProduk}|{Row ID JADWAL THREADS}" — echo dari subId1|subId2 yang ditag di Link Affiliate
+    QTY: "Qty",
+    HARGA: "Harga",
+    KOMISI: "Komisi",
+    STATUS: "Status", // Pending / Validated / Invalid
+    TANGGAL_TARIK: "Tanggal Tarik", // timestamp saat script narik data (audit/debug)
+  },
+
+  // --- Shopee Affiliate Open API (GraphQL) ---
+  SHOPEE: {
+    API_BASE: envOr(["SHOPEE_AFFILIATE_API_BASE"], "https://open-api.affiliate.shopee.co.id/graphql"),
+    // App ID + Secret dari akun Shopee Affiliate (Open API). Wajib di-set via env, jangan commit ke repo.
+    APP_ID_ENV: "SHOPEE_AFFILIATE_APP_ID",
+    APP_SECRET_ENV: "SHOPEE_AFFILIATE_APP_SECRET",
+    // Rentang tarik data per run: [now - LOOKBACK_DAYS, now]. Dedup di Sheet yang mastiin tidak dobel append,
+    // jadi window ini cuma perlu >= jarak antar-run (dilebihin dikit buat jaga-jaga run yang skip/gagal).
+    LOOKBACK_DAYS: Number(envOr(["SHOPEE_LOOKBACK_DAYS"], "3")) || 3,
+    PAGE_LIMIT: 50, // max node per page conversionReport
+  },
 };
 
 function getSecret(name) {
@@ -139,4 +207,13 @@ function assertGeminiConfig() {
   }
 }
 
-module.exports = { CONFIG, getSecret, assertCoreConfig, assertGeminiConfig };
+function assertShopeeConfig() {
+  const missing = [];
+  if (!process.env[CONFIG.SHOPEE.APP_ID_ENV]) missing.push(CONFIG.SHOPEE.APP_ID_ENV);
+  if (!process.env[CONFIG.SHOPEE.APP_SECRET_ENV]) missing.push(CONFIG.SHOPEE.APP_SECRET_ENV);
+  if (missing.length) {
+    throw new Error(`Config Shopee Affiliate belum lengkap, environment variable berikut kosong: ${missing.join(", ")}`);
+  }
+}
+
+module.exports = { CONFIG, getSecret, assertCoreConfig, assertGeminiConfig, assertShopeeConfig };

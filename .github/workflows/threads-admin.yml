@@ -5,7 +5,7 @@ on:
       action:
         description: 'Aksi'
         type: choice
-        options: [set-cell, delete-column, rename-tab]
+        options: [set-cell, delete-column, rename-tab, backfill-row-id, 'shopee:introspect']
         default: set-cell
       judul:
         description: '(set-cell) Judul Konten'
@@ -31,6 +31,8 @@ jobs:
       SHEET_ID: ${{ secrets.SHEET_ID }}
       DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
       THREADS_SHEET_NAME: ${{ secrets.THREADS_SHEET_NAME }}
+      SHOPEE_AFFILIATE_APP_ID: ${{ secrets.SHOPEE_AFFILIATE_APP_ID }}
+      SHOPEE_AFFILIATE_APP_SECRET: ${{ secrets.SHOPEE_AFFILIATE_APP_SECRET }}
       JUDUL: ${{ inputs.judul }}
       COL: ${{ inputs.col }}
       VALUE: ${{ inputs.value }}

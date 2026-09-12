@@ -1,0 +1,28 @@
+name: Shopee Affiliate - Conversion Report
+on:
+  schedule:
+    - cron: '30 1 * * *'  # 08:30 WIB, harian
+  workflow_dispatch:
+concurrency:
+  group: shopee-affiliate-conversion-report
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run conversion-report
+        env:
+          GOOGLE_SERVICE_ACCOUNT_EMAIL: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_EMAIL }}
+          GOOGLE_PRIVATE_KEY: ${{ secrets.GOOGLE_PRIVATE_KEY }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          THREADS_SHEET_NAME: ${{ secrets.THREADS_SHEET_NAME }}
+          SHOPEE_AFFILIATE_APP_ID: ${{ secrets.SHOPEE_AFFILIATE_APP_ID }}
+          SHOPEE_AFFILIATE_APP_SECRET: ${{ secrets.SHOPEE_AFFILIATE_APP_SECRET }}
