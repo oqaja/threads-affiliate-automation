@@ -78,6 +78,7 @@ const CONFIG = {
     MOMEN: "Momen/Skenario Pakai",
     LINK: "Link Affiliate",
     STATUS_BRIEF: "Status Brief",
+    CATATAN: "Catatan Brief",
     // --- Fashion & Wearables ---
     BAHAN_SPEK: "Bahan & Spek Teknis",
     VISUAL: "Ciri Visual/Vibe Desain",
@@ -130,6 +131,7 @@ const CONFIG = {
   // --- Nilai Status Brief (tab BRIEF PRODUK) ---
   BRIEF_STATUS: {
     DONE: "Diproses", // sudah digenerate jadi baris JADWAL THREADS, jangan diproses ulang
+    ERROR: "Gagal", // generate gagal — cek kolom Catatan Brief
   },
 
   // Jeda Utas 1 -> Utas 2: acak per-run antara MIN & MAX menit.
