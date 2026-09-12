@@ -10,6 +10,7 @@
 const { CONFIG } = require("./config");
 
 const IMAGE_EXT = /\.(jpe?g|png|webp)$/i;
+const VIDEO_EXT = /\.(mp4|mov|webm|m4v)$/i;
 
 async function listImagesInFolder(drive) {
   const files = [];
@@ -60,4 +61,28 @@ async function findImagesForTitle(drive, judul) {
   return matched.map((x) => ({ url: publicImageUrl(x.id), name: x.name, id: x.id }));
 }
 
-module.exports = { findImagesForTitle, listImagesInFolder, publicImageUrl };
+/**
+ * Cari 1 file video untuk judul konten tertentu, konvensi nama:
+ * "<Judul Konten> video.<ext>" (case-insensitive). Return null kalau tidak ada.
+ */
+async function findVideoForTitle(drive, judul) {
+  const target = `${judul.trim().toLowerCase()} video`;
+  const res = await drive.files.list({
+    q: `'${CONFIG.DRIVE_IMAGE_FOLDER_ID}' in parents and trashed = false`,
+    fields: "files(id, name, mimeType)",
+    pageSize: 1000,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  const files = (res.data.files || []).filter(
+    (f) => VIDEO_EXT.test(f.name) || (f.mimeType || "").startsWith("video/")
+  );
+  const match = files.find((f) => {
+    const base = f.name.replace(VIDEO_EXT, "").trim().toLowerCase();
+    return base === target;
+  });
+  if (!match) return null;
+  return { url: publicImageUrl(match.id), name: match.name, id: match.id };
+}
+
+module.exports = { findImagesForTitle, findVideoForTitle, listImagesInFolder, publicImageUrl };
