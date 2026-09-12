@@ -1,7 +1,9 @@
 name: Threads Affiliate - Sync & Publish
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 * * * *'   # cadangan tiap jam, jaring pengaman kalau trigger presisi berhenti
+  repository_dispatch:
+    types: [threads-publish-tick]
   workflow_dispatch:
     inputs:
       dry_run:
