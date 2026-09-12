@@ -33,25 +33,50 @@ function line(label, value) {
   return v ? `${label}: ${v}` : null;
 }
 
+/** "BAHAN_SPEK" -> "bahanSpek" (dipakai buat cocokin key BRIEF_COL <-> key categoryFields). */
+function toCamelCase(constKey) {
+  return constKey.toLowerCase().replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+}
+
+/**
+ * Label manusiawi per field kategori, key-nya camelCase (misal "teksturAroma").
+ * Diturunkan otomatis dari CONFIG.CATEGORY_FIELDS + CONFIG.BRIEF_COL supaya labelnya
+ * selalu konsisten sama nama kolom Sheet asli dan otomatis ikut kalau ada kategori/field baru.
+ */
+const CATEGORY_FIELD_LABELS = Object.fromEntries(
+  [...new Set(Object.values(CONFIG.CATEGORY_FIELDS).flat())].map((key) => [
+    toCamelCase(key),
+    CONFIG.BRIEF_COL[key],
+  ])
+);
+
 function buildPrompt(brief) {
   const jumlahAngle = Number(brief.jumlahAngle) > 0 ? Math.floor(Number(brief.jumlahAngle)) : null;
   const jumlahInstruction = jumlahAngle
     ? `WAJIB hasilkan PERSIS ${jumlahAngle} angle — tidak kurang, tidak lebih.`
     : `Kamu yang tentuin sendiri berapa jumlah angle yang paling masuk akal dari brief ini (minimal ${CONFIG.GEMINI_MIN_ANGLES}, maksimal ${CONFIG.GEMINI_MAX_ANGLES}), gak harus selalu maksimal.`;
+
+  const categoryFieldLines = Object.entries(brief.categoryFields || {}).map(
+    ([key, value]) => line(CATEGORY_FIELD_LABELS[key] || key, value)
+  );
+
   const briefLines = [
     line("Brand/Produk", brief.brand),
     line("Selling Point / Kelebihan Utama", brief.sellingPoint),
     line("Harga", brief.harga),
     line("Masalah yang Diselesaikan", brief.masalah),
     line("Momen/Skenario Pakai", brief.momen),
-    line("Bahan & Spek Teknis", brief.bahanSpek),
-    line("Ciri Visual/Vibe Desain", brief.visual),
+    ...categoryFieldLines,
   ].filter(Boolean).join("\n");
 
-  return `Kamu adalah copywriter Threads buat konten affiliate sepatu/fashion (brand: Shoe Police / NSP).
-Tugas kamu: dari SATU brief produk di bawah, hasilkan BEBERAPA "angle" (sudut pandang) konten yang beda-beda.
+  const kategori = String(brief.kategori || "").trim();
+
+  return `Kamu adalah copywriter Threads buat konten affiliate (akun: Shoe Police / NSP).
+Tugas kamu: dari SATU brief yang dibahas di bawah, hasilkan BEBERAPA "angle" (sudut pandang) konten yang beda-beda.
 ${jumlahInstruction}
 Gak perlu maksa pakai poin brief yang kosong di bawah.
+
+Kategori Produk: ${kategori || "(tidak disebutkan)"}
 
 === BRIEF ===
 ${briefLines}
@@ -59,7 +84,7 @@ ${briefLines}
 
 Format tiap angle = 3 bagian teks buat 3 post Threads berantai:
 1. "utas1" (Hook) — pembuka yang narik perhatian, JANGAN jualan langsung di kalimat pertama.
-2. "utas2" (Produk) — isi/pembahasan produk, natural, gak kaku kayak iklan.
+2. "utas2" (Pembahasan) — isi/pembahasan yang dibahas, natural, gak kaku kayak iklan.
 3. "reply" (Link) — ajakan cek link, singkat.
 
 ATURAN KETAT:
