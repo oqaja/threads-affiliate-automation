@@ -7,8 +7,13 @@
  *
  * Baris brief yang sudah diproses ditandai Status Brief = "Diproses" biar
  * tidak digenerate ulang di run berikutnya. Kalau ada error di tengah proses
- * satu brief, Status Brief-nya SENGAJA dibiarkan kosong supaya dicoba lagi
- * run berikutnya (bukan silent-skip).
+ * satu brief, Status Brief diset "Gagal" dan pesan error ditulis ke "Catatan
+ * Brief" supaya kelihatan jelas (bukan dibiarkan kosong selamanya).
+ *
+ * Bisa ditarget ke satu baris brief spesifik lewat targetRowNumber (dipakai
+ * trigger manual per-baris dari PWA) supaya tidak kena timeout kalau ada
+ * banyak baris pending sekaligus. Tanpa targetRowNumber, tetap loop semua
+ * baris yang Status Brief-nya kosong (dipakai script CLI).
  */
 
 const { CONFIG } = require("./config");
@@ -30,7 +35,32 @@ function buildRowArray(headerMap, valuesByColName) {
   return arr;
 }
 
+const CATATAN_MAX_LEN = 300;
+
+/** Tulis 1 cell di tab "BRIEF PRODUK", skip kalau kolomnya tidak ada di header. */
+async function writeBriefCell(sheets, briefHeaderMap, rowNumber, col, value) {
+  const colNum = briefHeaderMap[col];
+  if (!colNum) return;
+  if (isDryRun()) {
+    console.log(`    [DRY] Sheet r${rowNumber} "${col}" = ${JSON.stringify(String(value).slice(0, 90))}`);
+    return;
+  }
+  await setCellValue(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME, rowNumber, colNum, value);
+}
+
 async function processOneBrief(briefRow, ctx) {
+  try {
+    await doProcessOneBrief(briefRow, ctx);
+  } catch (err) {
+    const { sheets, briefHeaderMap } = ctx;
+    const pesan = String(err.message || "").slice(0, CATATAN_MAX_LEN);
+    await writeBriefCell(sheets, briefHeaderMap, briefRow._rowNumber, BC.STATUS_BRIEF, CONFIG.BRIEF_STATUS.ERROR).catch(() => {});
+    await writeBriefCell(sheets, briefHeaderMap, briefRow._rowNumber, BC.CATATAN, pesan).catch(() => {});
+    throw err;
+  }
+}
+
+async function doProcessOneBrief(briefRow, ctx) {
   const { sheets, briefHeaderMap, jadwalHeaderMap } = ctx;
   const judul = String(briefRow[BC.JUDUL] || "").trim();
   const brand = String(briefRow[BC.BRAND] || "").trim();
@@ -61,6 +91,11 @@ async function processOneBrief(briefRow, ctx) {
   });
   console.log(`     Gemini hasilkan ${angles.length} angle.`);
 
+  const catatanLama = String(briefRow[BC.CATATAN] || "").trim();
+  if (catatanLama) {
+    await writeBriefCell(sheets, briefHeaderMap, briefRow._rowNumber, BC.CATATAN, "");
+  }
+
   for (const angle of angles) {
     const rowValues = buildRowArray(jadwalHeaderMap, {
       [C.JUDUL]: judul,
@@ -82,22 +117,14 @@ async function processOneBrief(briefRow, ctx) {
     }
   }
 
-  const statusColNum = briefHeaderMap[BC.STATUS_BRIEF];
-  if (!statusColNum) {
+  if (!briefHeaderMap[BC.STATUS_BRIEF]) {
     console.log(`  (warning) Kolom "Status Brief" tidak ketemu di header — brief ini AKAN diproses ulang run berikutnya.`);
     return;
   }
-  if (isDryRun()) {
-    console.log(`  [DRY] Status Brief r${briefRow._rowNumber} = "${CONFIG.BRIEF_STATUS.DONE}"`);
-  } else {
-    await setCellValue(
-      sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME,
-      briefRow._rowNumber, statusColNum, CONFIG.BRIEF_STATUS.DONE
-    );
-  }
+  await writeBriefCell(sheets, briefHeaderMap, briefRow._rowNumber, BC.STATUS_BRIEF, CONFIG.BRIEF_STATUS.DONE);
 }
 
-async function runGenerateFromBrief({ sheets }) {
+async function runGenerateFromBrief({ sheets, targetRowNumber }) {
   const briefHeaderMap = await getHeaderColumnMap(
     sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME, CONFIG.BRIEF_HEADER_ROW
   );
@@ -111,9 +138,19 @@ async function runGenerateFromBrief({ sheets }) {
     throw new Error(`Kolom wajib tidak ada di header "${CONFIG.BRIEF_SHEET_NAME}" baris ${CONFIG.BRIEF_HEADER_ROW}: ${missing.join(", ")}`);
   }
 
-  const pending = briefRows.filter((r) => String(r[BC.STATUS_BRIEF] || "").trim() === "");
-  console.log(`${briefRows.length} baris brief total — ${pending.length} belum diproses (Status Brief kosong).`);
-  if (!pending.length) {
+  let target;
+  if (targetRowNumber !== undefined) {
+    target = briefRows.filter((r) => r._rowNumber === targetRowNumber);
+    if (!target.length) {
+      throw new Error(`Baris brief #${targetRowNumber} tidak ditemukan.`);
+    }
+    console.log(`Target 1 baris brief spesifik: #${targetRowNumber}.`);
+  } else {
+    target = briefRows.filter((r) => String(r[BC.STATUS_BRIEF] || "").trim() === "");
+    console.log(`${briefRows.length} baris brief total — ${target.length} belum diproses (Status Brief kosong).`);
+  }
+
+  if (!target.length) {
     console.log("Tidak ada yang diproses run ini.");
     return;
   }
@@ -122,13 +159,13 @@ async function runGenerateFromBrief({ sheets }) {
     sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
   );
 
-  for (const briefRow of pending) {
+  for (const briefRow of target) {
     console.log(`Proses baris brief ${briefRow._rowNumber}: "${briefRow[BC.JUDUL]}"`);
     try {
       await processOneBrief(briefRow, { sheets, briefHeaderMap, jadwalHeaderMap });
     } catch (e) {
       console.log(`  GAGAL: ${e.message}`);
-      console.log(`  (Status Brief dibiarkan kosong, akan dicoba lagi run berikutnya.)`);
+      console.log(`  (Status Brief = "${CONFIG.BRIEF_STATUS.ERROR}", Catatan Brief dicatat.)`);
     }
   }
   console.log("Selesai proses generate-from-brief.");
