@@ -24,7 +24,7 @@ const { CONFIG } = require("./config");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue } = require("./sheetsHelper");
 const { getDatePartsInTimezone, tanggalUploadDue } = 
 require("./dateUtils");
-const { findImagesForTitle } = require("./driveFinder");
+const { findImagesForTitle, findVideoForTitle } = require("./driveFinder");
 const { isDryRun } = require("./env");
 const { sleep } = require("./threadsClient");
 
@@ -134,27 +134,34 @@ async function publishText(threads, { text, replyToId }) {
   return threads.publishContainer(creationId);
 }
 
-/** Publish 1 post dengan 0..n gambar (Utas 2). */
-async function publishWithImages(threads, { text, images, replyToId }) {
-  if (!images.length) {
+/** Publish 1 post dengan video opsional + 0..n gambar (Utas 2). */
+async function publishWithMedia(threads, { text, video, images, replyToId }) {
+  const items = [];
+  if (video) items.push({ type: "VIDEO", url: video.url });
+  for (const img of images) items.push({ type: "IMAGE", url: img.url });
+
+  if (items.length === 0) {
     return publishText(threads, { text, replyToId });
   }
-  if (images.length === 1) {
+  if (items.length === 1) {
+    const item = items[0];
     const creationId = await threads.createContainer({
-      mediaType: "IMAGE",
+      mediaType: item.type,
       text,
-      imageUrl: images[0].url,
+      imageUrl: item.type === "IMAGE" ? item.url : undefined,
+      videoUrl: item.type === "VIDEO" ? item.url : undefined,
       replyToId,
     });
     await threads.waitUntilFinished(creationId);
     return threads.publishContainer(creationId);
   }
-  // Carousel
+  // Carousel: video (kalau ada) di awal, lalu semua gambar, urutan items sudah benar.
   const children = [];
-  for (const img of images.slice(0, 20)) {
+  for (const item of items.slice(0, 20)) {
     const childId = await threads.createContainer({
-      mediaType: "IMAGE",
-      imageUrl: img.url,
+      mediaType: item.type,
+      imageUrl: item.type === "IMAGE" ? item.url : undefined,
+      videoUrl: item.type === "VIDEO" ? item.url : undefined,
       isCarouselItem: true,
     });
     children.push(childId);
@@ -219,8 +226,13 @@ async function publishRow(row, ctx) {
     // ---- Utas 2 (reply ke Utas 1, + gambar) ----
     if (!id2) {
       const images = await findImagesForTitle(drive, judul).catch(() => []);
-      console.log(`  -> Utas 2: ${judul} (${images.length} gambar)`);
-      id2 = await publishWithImages(threads, { text: t2, images, replyToId: id1 });
+      const video = await findVideoForTitle(drive, judul).catch(() => null);
+      const mediaLabel = [
+        video ? "1 video" : null,
+        images.length ? `${images.length} gambar` : null,
+      ].filter(Boolean).join(" + ") || "tanpa media";
+      console.log(`  -> Utas 2: ${judul} (${mediaLabel})`);
+      id2 = await publishWithMedia(threads, { text: t2, video, images, replyToId: id1 });
       await set(C.POST_ID_2, id2);
       console.log(`     OK Utas 2 = ${id2}`);
     } else {

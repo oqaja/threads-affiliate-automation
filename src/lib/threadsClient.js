@@ -85,9 +85,10 @@ function makeClient({ userId, accessToken }) {
     /**
      * Buat media container.
      * @param {object} o
-     * @param {"TEXT"|"IMAGE"|"CAROUSEL"} o.mediaType
+     * @param {"TEXT"|"IMAGE"|"VIDEO"|"CAROUSEL"} o.mediaType
      * @param {string} [o.text]
      * @param {string} [o.imageUrl]        (IMAGE / carousel item)
+     * @param {string} [o.videoUrl]       (VIDEO / carousel item video)
      * @param {boolean} [o.isCarouselItem]
      * @param {string[]} [o.children]      (CAROUSEL: array creation_id item)
      * @param {string} [o.replyToId]       (media_id yang di-reply)
@@ -98,6 +99,7 @@ function makeClient({ userId, accessToken }) {
         media_type: o.mediaType,
         text: o.text,
         image_url: o.imageUrl,
+        video_url: o.videoUrl,
         reply_to_id: o.replyToId,
       };
       if (o.isCarouselItem) params.is_carousel_item = "true";
