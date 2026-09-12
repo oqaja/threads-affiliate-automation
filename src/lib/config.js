@@ -155,7 +155,7 @@ const CONFIG = {
   // --- Threads API ---
   THREADS_API_BASE: "https://graph.threads.net/v1.0",
   THREADS_MAX_TEXT: 500, // limit karakter per post Threads
-  THREADS_CONTAINER_TIMEOUT_S: 90,
+  THREADS_CONTAINER_TIMEOUT_S: 180, // video butuh waktu encode lebih lama dari gambar
 
   // --- Shopee Affiliate: tab "CONVERSION REPORT" (di Sheet yang sama) ---
   CONVERSION_SHEET_NAME: envOr(["SHOPEE_CONVERSION_SHEET_NAME"], "CONVERSION REPORT"),
