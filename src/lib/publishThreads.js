@@ -118,6 +118,16 @@ function randomJedaMenit() {
   return lo + Math.random() * (hi - lo);
 }
 
+/** Fisher-Yates shuffle — tidak memodifikasi array asli, return array baru. */
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 async function writeCell(sheets, headerMap, rowNumber, col, value) {
   if (!headerMap[col]) return;
   if (isDryRun()) {
@@ -225,7 +235,7 @@ async function publishRow(row, ctx) {
 
     // ---- Utas 2 (reply ke Utas 1, + gambar) ----
     if (!id2) {
-      const images = await findImagesForTitle(drive, judul).catch(() => []);
+      const images = shuffleArray(await findImagesForTitle(drive, judul).catch(() => []));
       const video = await findVideoForTitle(drive, judul).catch(() => null);
       const mediaLabel = [
         video ? "1 video" : null,
