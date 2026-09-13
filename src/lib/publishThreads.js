@@ -305,8 +305,23 @@ masuk Tanggal Upload & lewat Jam Threads.`);
   // Satu baris per run, urut paling awal jamnya.
   actionable.sort((a, b) => (jamToMinutes(a[C.JAM]) ?? 0) - (jamToMinutes(b[C.JAM]) ?? 0));
   const row = actionable[0];
-  console.log(`Proses baris ${row._rowNumber}: "${row[C.JUDUL]}"`);
-  await publishRow(row, { sheets, drive, threads, headerMap });
+  const isManual = String(row[C.TIPE_KONTEN] || "").trim() === CONFIG.CONTENT_TYPE.MANUAL;
+  console.log(`Proses baris ${row._rowNumber}: "${row[C.JUDUL]}"${isManual ? " (Manual)" : ""}`);
+  const { publishManualThreadRow } = require("./publishManualThread");
+  if (isManual) {
+    try {
+      await publishManualThreadRow(row, { sheets, drive, threads, jadwalHeaderMap: headerMap });
+    } catch (e) {
+      console.log(`  GAGAL (manual): ${e.message}`);
+      await writeCell(sheets, headerMap, row._rowNumber, C.STATUS, S.ERROR).catch(() => {});
+      await writeCell(
+        sheets, headerMap, row._rowNumber, C.CATATAN,
+        `Error: ${e.message} | baris utas yang sudah terlanjur publish TETAP tersimpan (cek tab UTAS MANUAL, POST ID) — retry akan lanjut dari yang belum selesai`
+      ).catch(() => {});
+    }
+  } else {
+    await publishRow(row, { sheets, drive, threads, headerMap });
+  }
   console.log("Selesai proses publish.");
 }
 
@@ -316,6 +331,10 @@ module.exports = {
   applyPlaceholders,
   resolveLink,
   stripInstructionLines,
+  assertLen,
+  writeCell,
+  publishText,
+  publishWithMedia,
   jamToMinutes,
   jamThreadsPassed,
   jamDisplay,
