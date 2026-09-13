@@ -85,4 +85,37 @@ async function findVideoForTitle(drive, judul) {
   return { url: publicImageUrl(match.id), name: match.name, id: match.id };
 }
 
-module.exports = { findImagesForTitle, findVideoForTitle, listImagesInFolder, publicImageUrl };
+/**
+ * Cari 1 atau lebih file di folder Drive berdasar nama PERSIS (bukan konvensi
+ * "<Judul> <n>"). Dipakai untuk konten manual dimana tiap utas punya nama file
+ * media sendiri-sendiri (hasil upload PWA, bukan mengikuti konvensi judul).
+ * fileNames: array of string, exact filename match (case-sensitive, termasuk
+ * ekstensi). Return array [{url, name, id}] sesuai urutan fileNames yang
+ * diberikan (skip yang tidak ketemu, jangan throw error).
+ */
+async function findFilesByExactNames(drive, fileNames) {
+  if (!fileNames || !fileNames.length) return [];
+  const res = await drive.files.list({
+    q: `'${CONFIG.DRIVE_IMAGE_FOLDER_ID}' in parents and trashed = false`,
+    fields: "files(id, name, mimeType)",
+    pageSize: 1000,
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  });
+  const files = res.data.files || [];
+  const byName = new Map(files.map((f) => [f.name, f]));
+  const matched = [];
+  for (const fname of fileNames) {
+    const f = byName.get(fname.trim());
+    if (f) matched.push({ url: publicImageUrl(f.id), name: f.name, id: f.id });
+  }
+  return matched;
+}
+
+module.exports = {
+  findImagesForTitle,
+  findVideoForTitle,
+  findFilesByExactNames,
+  listImagesInFolder,
+  publicImageUrl,
+};
