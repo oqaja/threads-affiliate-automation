@@ -55,6 +55,8 @@ const CONFIG = {
     UTAS2: "Utas 2 (Produk)", // DRAFT teks produk
     REPLY: "Reply (Link)", // DRAFT teks reply link
     STATUS: "STATUS THREADS",
+    TIPE_KONTEN: "Tipe Konten",
+    ID_KONTEN: "ID Konten",
     JEDA_UTAS2: "Jeda Utas 2 (menit)",
     CATATAN: "Catatan", // log hasil / pesan error (ditulis script)
     POST_ID_1: "POST ID Utas 1",
@@ -65,6 +67,22 @@ const CONFIG = {
     REPLY_RATE: "Reply Rate (%)",
   },
 
+  MANUAL_SHEET_NAME: envOr(["THREADS_MANUAL_SHEET_NAME", "MANUAL_SHEET_NAME"], "UTAS MANUAL"),
+  MANUAL_HEADER_ROW: Number(envOr(["THREADS_MANUAL_HEADER_ROW", "MANUAL_HEADER_ROW"], "1")) || 1,
+
+  // --- Kolom Sheet "UTAS MANUAL" ---
+  MANUAL_COL: {
+    ID_KONTEN: "ID Konten",
+    URUTAN: "Urutan",
+    TEKS: "Teks Utas",
+    MEDIA: "Nama File Media",
+    POST_ID: "POST ID",
+  },
+
+  // --- Nilai Tipe Konten (JADWAL THREADS) ---
+  CONTENT_TYPE: {
+    MANUAL: "Manual",
+  },
 
   // --- Kolom Sheet "BRIEF PRODUK" ---
   BRIEF_COL: {
