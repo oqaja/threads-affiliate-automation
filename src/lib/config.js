@@ -77,6 +77,7 @@ const CONFIG = {
     TEKS: "Teks Utas",
     MEDIA: "Nama File Media",
     POST_ID: "POST ID",
+    VIEWS: "Views",
   },
 
   // --- Nilai Tipe Konten (JADWAL THREADS) ---
