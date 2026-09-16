@@ -20,7 +20,8 @@
     "generate-from-brief": "node --env-file-if-exists=.env scripts/run-generate-from-brief.js",
     "conversion-report": "node --env-file-if-exists=.env scripts/run-conversion-report.js",
     "backfill-row-id": "node --env-file-if-exists=.env scripts/backfill-row-id.js",
-    "shopee:introspect": "node --env-file-if-exists=.env scripts/shopee-introspect.js"
+    "shopee:introspect": "node --env-file-if-exists=.env scripts/shopee-introspect.js",
+    "migrate-reply": "node --env-file-if-exists=.env scripts/migrate-reply-to-utas2.js"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
