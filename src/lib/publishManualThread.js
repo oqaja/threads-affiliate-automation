@@ -23,14 +23,11 @@ const { readSheetAsObjects, getHeaderColumnMap, setCellValue } = require("./shee
 const { findFilesByExactNames, VIDEO_EXT } = require("./driveFinder");
 const { isDryRun } = require("./env");
 const { sleep } = require("./threadsClient");
-const {
-  applyPlaceholders,
-  resolveLink,
-  assertLen,
-  writeCell,
-  publishWithMedia,
-  randomJedaMenit,
-} = require("./publishThreads");
+// NB: require("./publishThreads") sengaja TIDAK di top-level — publishThreads.js
+// juga require file ini (buat panggil publishManualThreadRow), jadi kalau
+// didestructure di sini di top-level bakal kena circular-require dan dapat
+// undefined. Di-require lazy di dalam function, dipanggil pas runtime setelah
+// kedua modul selesai di-load.
 
 const C = CONFIG.COL;
 const MC = CONFIG.MANUAL_COL;
@@ -51,7 +48,7 @@ async function writeManualCell(sheets, headerMap, rowNumber, col, value) {
  * placeholder itu (kalau ada di teks) di-replace jadi string kosong — bukan
  * dibiarkan literal.
  */
-function applyManualPlaceholders(text, { brand, link }) {
+function applyManualPlaceholders(applyPlaceholders, text, { brand, link }) {
   let out = applyPlaceholders(text, { brand, link });
   if (!link) out = out.split(CONFIG.PLACEHOLDER.LINK).join("");
   return out.trim();
@@ -62,6 +59,15 @@ function applyManualPlaceholders(text, { brand, link }) {
  * terkait (tab UTAS MANUAL, dicocokkan lewat ID Konten) secara berurutan.
  */
 async function publishManualThreadRow(jadwalRow, ctx) {
+  const {
+    applyPlaceholders,
+    resolveLink,
+    assertLen,
+    writeCell,
+    publishWithMedia,
+    randomJedaMenit,
+  } = require("./publishThreads");
+
   const { sheets, drive, threads, jadwalHeaderMap } = ctx;
   const jadwalRowNum = jadwalRow._rowNumber;
 
@@ -124,7 +130,7 @@ async function publishManualThreadRow(jadwalRow, ctx) {
       if (!isDryRun()) await sleep(Math.round(jeda * 60 * 1000));
     }
 
-    const text = applyManualPlaceholders(utasRow[MC.TEKS], { brand, link });
+    const text = applyManualPlaceholders(applyPlaceholders, utasRow[MC.TEKS], { brand, link });
     assertLen(`Utas manual r${utasRowNum} (ID Konten ${idKonten})`, text);
 
     const mediaRaw = String(utasRow[MC.MEDIA] || "").trim();

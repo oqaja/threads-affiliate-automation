@@ -118,4 +118,5 @@ module.exports = {
   findFilesByExactNames,
   listImagesInFolder,
   publicImageUrl,
+  VIDEO_EXT,
 };
