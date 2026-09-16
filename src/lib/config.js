@@ -56,6 +56,7 @@ const CONFIG = {
     REPLY: "Reply (Link)", // DRAFT teks reply link
     STATUS: "STATUS THREADS",
     TIPE_KONTEN: "Tipe Konten",
+    KATEGORI: "Kategori Produk",
     ID_KONTEN: "ID Konten",
     JEDA_UTAS2: "Jeda Utas 2 (menit)",
     CATATAN: "Catatan", // log hasil / pesan error (ditulis script)
