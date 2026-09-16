@@ -106,7 +106,6 @@ async function doProcessOneBrief(briefRow, ctx) {
       [C.CATATAN_ANGLE]: angle.catatan_angle,
       [C.UTAS1]: angle.utas1,
       [C.UTAS2]: angle.utas2,
-      [C.REPLY]: angle.reply,
       [C.STATUS]: CONFIG.STATUS.READY,
     });
     if (isDryRun()) {

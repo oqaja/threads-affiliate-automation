@@ -82,16 +82,15 @@ Kategori Produk: ${kategori || "(tidak disebutkan)"}
 ${briefLines}
 =============
 
-Format tiap angle = 3 bagian teks buat 3 post Threads berantai:
+Format tiap angle = 2 bagian teks buat 2 post Threads berantai:
 1. "utas1" (Hook) — pembuka yang narik perhatian, JANGAN jualan langsung di kalimat pertama.
-2. "utas2" (Pembahasan) — isi/pembahasan yang dibahas, natural, gak kaku kayak iklan.
-3. "reply" (Link) — ajakan cek link, singkat.
+2. "utas2" (Pembahasan) — isi/pembahasan yang dibahas, natural, gak kaku kayak iklan, WAJIB sertakan ajakan cek link di akhir teks menggunakan literal "[Link Affiliate]" (bukan post terpisah lagi seperti sebelumnya).
 
 ATURAN KETAT:
 - Setiap nyebut nama brand/produk, pakai literal text "[Brand/Produk]" (akan di-replace otomatis oleh sistem) — JANGAN tulis nama brand asli langsung di teks.
-- Setiap nyebut link affiliate, pakai literal text "[Link Affiliate]" (akan di-replace otomatis) — JANGAN tulis link asli.
+- Setiap nyebut link affiliate, pakai literal text "[Link Affiliate]" (akan di-replace otomatis) — JANGAN tulis link asli. Link HARUS muncul di dalam teks utas2 (bukan di post terpisah).
 - JANGAN pakai placeholder lain selain dua di atas.
-- Tiap teks (utas1/utas2/reply) MAKSIMAL 480 karakter (batas keras platform 500, sisain jarak aman).
+- Tiap teks (utas1/utas2) MAKSIMAL 480 karakter (batas keras platform 500, sisain jarak aman).
 - Angle-angle harus beneran beda sudut pandang (misal: fokus ke masalah yang diselesaikan, fokus ke momen pakai, fokus ke spek teknis, fokus ke harga/value, dll — sesuaikan sama poin brief yang TERISI) — bukan cuma beda kalimat pembuka.
 - Bahasa Indonesia santai, gaya media sosial, bukan bahasa formal/iklan kaku.
 
@@ -107,8 +106,7 @@ OUTPUT: HANYA JSON array valid, TANPA markdown code fence, TANPA teks penjelasan
     "pilar": "...",
     "segmen": "...",
     "utas1": "...",
-    "utas2": "...",
-    "reply": "..."
+    "utas2": "..."
   }
 ]`;
 }
@@ -152,14 +150,13 @@ async function generateAnglesFromBrief(brief) {
   return angles.map((a, i) => {
     const utas1 = String(a.utas1 || "").trim();
     const utas2 = String(a.utas2 || "").trim();
-    const reply = String(a.reply || "").trim();
     const catatan = String(a.catatan_angle || `Angle ${i + 1}`).trim();
     const pilar = String(a.pilar || "").trim();
     const segmen = String(a.segmen || "").trim();
-    if (!utas1 || !utas2 || !reply) {
-      throw new Error(`Angle #${i + 1} dari Gemini ada bagian kosong (utas1/utas2/reply).`);
+    if (!utas1 || !utas2) {
+      throw new Error(`Angle #${i + 1} dari Gemini ada bagian kosong (utas1/utas2).`);
     }
-    return { catatan_angle: catatan, pilar, segmen, utas1, utas2, reply };
+    return { catatan_angle: catatan, pilar, segmen, utas1, utas2 };
   });
 }
 

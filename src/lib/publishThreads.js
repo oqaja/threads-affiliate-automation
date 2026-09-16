@@ -211,10 +211,11 @@ async function publishRow(row, ctx) {
   try {
     const t1 = applyPlaceholders(row[C.UTAS1], { brand, link });
     const t2 = applyPlaceholders(row[C.UTAS2], { brand, link });
-    const tR = applyPlaceholders(row[C.REPLY], { brand, link });
+    const replyRaw = String(row[C.REPLY] || "").trim();
+    const tR = replyRaw ? applyPlaceholders(row[C.REPLY], { brand, link }) : "";
     assertLen("Utas 1", t1);
     assertLen("Utas 2", t2);
-    assertLen("Reply link", tR);
+    if (tR) assertLen("Reply link", tR);
     if (!link) throw new Error('Kolom "Link Affiliate" kosong.');
 
     // ---- Utas 1 ----
@@ -249,18 +250,23 @@ async function publishRow(row, ctx) {
       console.log(`  (skip Utas 2 — sudah ada ${id2})`);
     }
 
-    // ---- Reply link (reply ke Utas 2) ----
-    if (!idR) {
-      console.log(`  -> Reply link: ${judul}`);
-      idR = await publishText(threads, { text: tR, replyToId: id2 });
-      await set(C.POST_ID_REPLY, idR);
-      console.log(`     OK Reply = ${idR}`);
+    // ---- Reply link (reply ke Utas 2) — OPSIONAL, cuma kalau kolom Reply terisi ----
+    if (tR) {
+      if (!idR) {
+        console.log(`  -> Reply link: ${judul}`);
+        idR = await publishText(threads, { text: tR, replyToId: id2 });
+        await set(C.POST_ID_REPLY, idR);
+        console.log(`     OK Reply = ${idR}`);
+      } else {
+        console.log(`  (skip Reply — sudah ada ${idR})`);
+      }
     } else {
-      console.log(`  (skip Reply — sudah ada ${idR})`);
+      console.log(`  (tidak ada Reply link untuk konten ini — publish 2 post saja)`);
     }
 
     await set(C.STATUS, S.DONE);
-    await set(C.CATATAN, `${S.DONE} ${new Date().toISOString()} — utas1 ${id1} · utas2 ${id2} · reply ${idR}`);
+    const ringkasan = [`utas1 ${id1}`, `utas2 ${id2}`, idR && `reply ${idR}`].filter(Boolean).join(" · ");
+    await set(C.CATATAN, `${S.DONE} ${new Date().toISOString()} — ${ringkasan}`);
     console.log(`  SELESAI ${judul} -> STATUS "${S.DONE}"`);
   } catch (e) {
     const done = [
@@ -280,7 +286,7 @@ async function runPublish({ sheets, drive, threads }) {
     sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, HR
   );
 
-  const need = [C.JUDUL, C.STATUS, C.UTAS1, C.UTAS2, C.REPLY, C.LINK];
+  const need = [C.JUDUL, C.STATUS, C.UTAS1, C.UTAS2, C.LINK];
   const missing = need.filter((c) => !headers.includes(c));
   if (missing.length) {
     throw new Error(`Kolom wajib tidak ada di header baris ${HR}: ${missing.join(", ")}`);
