@@ -71,6 +71,16 @@ function buildPrompt(brief) {
 
   const kategori = String(brief.kategori || "").trim();
 
+  const exampleBlock = (brief.topExamples && brief.topExamples.length)
+    ? `\n=== CONTOH ANGLE YANG TERBUKTI PERFORMANYA BAGUS (kategori sama) ===\n` +
+      brief.topExamples.map((ex, i) =>
+        `Contoh ${i + 1}:\nUtas 1: ${ex.utas1}\nUtas 2: ${ex.utas2}\n`
+      ).join("\n") +
+      `=============\nPELAJARI pola gaya bahasa, struktur hook, dan cara penyampaian dari ` +
+      `contoh-contoh di atas — TAPI JANGAN meniru/menyalin kalimat persis, buat angle yang ` +
+      `BENAR-BENAR BARU dengan gaya serupa.\n`
+    : "";
+
   return `Kamu adalah copywriter Threads buat konten affiliate (akun: Shoe Police / NSP).
 Tugas kamu: dari SATU brief yang dibahas di bawah, hasilkan BEBERAPA "angle" (sudut pandang) konten yang beda-beda.
 ${jumlahInstruction}
@@ -81,7 +91,7 @@ Kategori Produk: ${kategori || "(tidak disebutkan)"}
 === BRIEF ===
 ${briefLines}
 =============
-
+${exampleBlock}
 Format tiap angle = 2 bagian teks buat 2 post Threads berantai:
 1. "utas1" (Hook) — pembuka yang narik perhatian, JANGAN jualan langsung di kalimat pertama.
 2. "utas2" (Pembahasan) — isi/pembahasan yang dibahas, natural, gak kaku kayak iklan, WAJIB sertakan ajakan cek link di akhir teks menggunakan literal "[Link Affiliate]" (bukan post terpisah lagi seperti sebelumnya).

@@ -37,6 +37,39 @@ function buildRowArray(headerMap, valuesByColName) {
 
 const CATATAN_MAX_LEN = 300;
 
+/**
+ * Ambil sampai N baris JADWAL THREADS terbaik di kategori yang sama, buat
+ * dijadikan contoh few-shot ke Gemini. Skor = Views Utas 2 * 0.7 + Views
+ * Utas 1 * 0.3. Cuma ambil baris yang punya data Views (minimal salah satu
+ * Views Utas 1/2 terisi angka valid) DAN Kategori Produk-nya cocok persis.
+ * Return array [{ utas1, utas2 }] — bisa kosong kalau belum ada data cukup
+ * (generate tetap jalan normal tanpa contoh, bukan error).
+ */
+async function getTopPerformingExamples(sheets, kategori, limit = 3) {
+  if (!kategori) return [];
+  const { rows } = await readSheetAsObjects(
+    sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
+  );
+
+  const scored = rows
+    .filter((r) => String(r[C.KATEGORI] || "").trim() === kategori)
+    .map((r) => {
+      const v1 = Number(r[C.VIEWS_1]);
+      const v2 = Number(r[C.VIEWS_2]);
+      const hasData = (!isNaN(v1) && v1 > 0) || (!isNaN(v2) && v2 > 0);
+      const score = (isNaN(v2) ? 0 : v2) * 0.7 + (isNaN(v1) ? 0 : v1) * 0.3;
+      return { row: r, hasData, score };
+    })
+    .filter((x) => x.hasData)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+
+  return scored.map((x) => ({
+    utas1: String(x.row[C.UTAS1] || "").trim(),
+    utas2: String(x.row[C.UTAS2] || "").trim(),
+  })).filter((e) => e.utas1 && e.utas2);
+}
+
 /** Tulis 1 cell di tab "BRIEF PRODUK", skip kalau kolomnya tidak ada di header. */
 async function writeBriefCell(sheets, briefHeaderMap, rowNumber, col, value) {
   const colNum = briefHeaderMap[col];
@@ -78,6 +111,9 @@ async function doProcessOneBrief(briefRow, ctx) {
     categoryFields[toCamelCase(key)] = briefRow[BC[key]];
   }
 
+  const topExamples = await getTopPerformingExamples(sheets, kategori);
+  console.log(`  (${topExamples.length} contoh top-performer dipakai sebagai referensi gaya)`);
+
   console.log(`  -> Generate angle buat: "${judul}"`);
   const angles = await generateAnglesFromBrief({
     brand,
@@ -88,6 +124,7 @@ async function doProcessOneBrief(briefRow, ctx) {
     momen: briefRow[BC.MOMEN],
     kategori,
     categoryFields,
+    topExamples,
   });
   console.log(`     Gemini hasilkan ${angles.length} angle.`);
 
@@ -101,6 +138,7 @@ async function doProcessOneBrief(briefRow, ctx) {
       [C.JUDUL]: judul,
       [C.BRAND]: brand,
       [C.LINK]: link,
+      [C.KATEGORI]: kategori,
       [C.PILAR]: angle.pilar,
       [C.SEGMEN]: angle.segmen,
       [C.CATATAN_ANGLE]: angle.catatan_angle,
@@ -170,4 +208,4 @@ async function runGenerateFromBrief({ sheets, targetRowNumber }) {
   console.log("Selesai proses generate-from-brief.");
 }
 
-module.exports = { runGenerateFromBrief, processOneBrief, buildRowArray };
+module.exports = { runGenerateFromBrief, processOneBrief, buildRowArray, getTopPerformingExamples };
