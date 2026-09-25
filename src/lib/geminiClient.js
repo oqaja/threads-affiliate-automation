@@ -50,17 +50,13 @@ const CATEGORY_FIELD_LABELS = Object.fromEntries(
   ])
 );
 
-function buildPrompt(brief) {
-  const jumlahAngle = Number(brief.jumlahAngle) > 0 ? Math.floor(Number(brief.jumlahAngle)) : null;
-  const jumlahInstruction = jumlahAngle
-    ? `WAJIB hasilkan PERSIS ${jumlahAngle} angle — tidak kurang, tidak lebih.`
-    : `Kamu yang tentuin sendiri berapa jumlah angle yang paling masuk akal dari brief ini (minimal ${CONFIG.GEMINI_MIN_ANGLES}, maksimal ${CONFIG.GEMINI_MAX_ANGLES}), gak harus selalu maksimal.`;
-
+/** Baris-baris brief (brand, selling point, dst + field kategori), yang kosong di-skip. */
+function buildBriefLines(brief) {
   const categoryFieldLines = Object.entries(brief.categoryFields || {}).map(
     ([key, value]) => line(CATEGORY_FIELD_LABELS[key] || key, value)
   );
 
-  const briefLines = [
+  return [
     line("Brand/Produk", brief.brand),
     line("Selling Point / Kelebihan Utama", brief.sellingPoint),
     line("Harga", brief.harga),
@@ -68,10 +64,11 @@ function buildPrompt(brief) {
     line("Momen/Skenario Pakai", brief.momen),
     ...categoryFieldLines,
   ].filter(Boolean).join("\n");
+}
 
-  const kategori = String(brief.kategori || "").trim();
-
-  const exampleBlock = (brief.topExamples && brief.topExamples.length)
+/** Blok few-shot dari top performer (kosong kalau gak ada contoh). */
+function buildExampleBlock(brief) {
+  return (brief.topExamples && brief.topExamples.length)
     ? `\n=== CONTOH ANGLE YANG TERBUKTI PERFORMANYA BAGUS (kategori sama) ===\n` +
       brief.topExamples.map((ex, i) =>
         `Contoh ${i + 1}:\nUtas 1: ${ex.utas1}\nUtas 2: ${ex.utas2}\n`
@@ -80,6 +77,17 @@ function buildPrompt(brief) {
       `contoh-contoh di atas — TAPI JANGAN meniru/menyalin kalimat persis, buat angle yang ` +
       `BENAR-BENAR BARU dengan gaya serupa.\n`
     : "";
+}
+
+function buildPrompt(brief) {
+  const jumlahAngle = Number(brief.jumlahAngle) > 0 ? Math.floor(Number(brief.jumlahAngle)) : null;
+  const jumlahInstruction = jumlahAngle
+    ? `WAJIB hasilkan PERSIS ${jumlahAngle} angle — tidak kurang, tidak lebih.`
+    : `Kamu yang tentuin sendiri berapa jumlah angle yang paling masuk akal dari brief ini (minimal ${CONFIG.GEMINI_MIN_ANGLES}, maksimal ${CONFIG.GEMINI_MAX_ANGLES}), gak harus selalu maksimal.`;
+
+  const briefLines = buildBriefLines(brief);
+  const kategori = String(brief.kategori || "").trim();
+  const exampleBlock = buildExampleBlock(brief);
 
   return `Kamu adalah copywriter Threads buat konten affiliate (akun: Shoe Police / NSP).
 Tugas kamu: dari SATU brief yang dibahas di bawah, hasilkan BEBERAPA "angle" (sudut pandang) konten yang beda-beda.
@@ -119,6 +127,64 @@ OUTPUT: HANYA JSON array valid, TANPA markdown code fence, TANPA teks penjelasan
     "utas2": "..."
   }
 ]`;
+}
+
+/**
+ * Varian buildPrompt buat generate PERSIS 1 angle per panggilan. Kalau
+ * brief.existingAngleSummaries ada isinya, ringkasan angle yang udah dibuat
+ * disisipin biar Gemini gak bikin angle yang mirip/duplikat.
+ * Output yang diminta: JSON object tunggal (bukan array).
+ */
+function buildSingleAnglePrompt(brief) {
+  const briefLines = buildBriefLines(brief);
+  const kategori = String(brief.kategori || "").trim();
+  const exampleBlock = buildExampleBlock(brief);
+
+  const existing = (brief.existingAngleSummaries || [])
+    .map((s) => String(s || "").trim())
+    .filter(Boolean);
+  const existingBlock = existing.length
+    ? `\n=== ANGLE YANG SUDAH DIBUAT (JANGAN BUAT YANG MIRIP INI) ===\n` +
+      existing.map((s, i) => `${i + 1}. ${s}`).join("\n") +
+      `\n=============\nBuat 1 angle BARU dengan sudut pandang BEDA dari semua di atas.\n`
+    : "";
+
+  return `Kamu adalah copywriter Threads buat konten affiliate (akun: Shoe Police / NSP).
+Tugas kamu: dari SATU brief yang dibahas di bawah, hasilkan SATU "angle" (sudut pandang) konten.
+WAJIB buat PERSIS 1 angle — tidak lebih.
+Gak perlu maksa pakai poin brief yang kosong di bawah.
+
+Kategori Produk: ${kategori || "(tidak disebutkan)"}
+
+=== BRIEF ===
+${briefLines}
+=============
+${exampleBlock}${existingBlock}
+Format angle = 2 bagian teks buat 2 post Threads berantai:
+1. "utas1" (Hook) — pembuka yang narik perhatian, JANGAN jualan langsung di kalimat pertama.
+2. "utas2" (Pembahasan) — isi/pembahasan yang dibahas, natural, gak kaku kayak iklan, WAJIB sertakan ajakan cek link di akhir teks menggunakan literal "[Link Affiliate]" (bukan post terpisah).
+
+ATURAN KETAT:
+- Setiap nyebut nama brand/produk, pakai literal text "[Brand/Produk]" (akan di-replace otomatis oleh sistem) — JANGAN tulis nama brand asli langsung di teks.
+- Setiap nyebut link affiliate, pakai literal text "[Link Affiliate]" (akan di-replace otomatis) — JANGAN tulis link asli. Link HARUS muncul di dalam teks utas2 (bukan di post terpisah).
+- JANGAN pakai placeholder lain selain dua di atas.
+- Tiap teks (utas1/utas2) MAKSIMAL 480 karakter (batas keras platform 500, sisain jarak aman).
+- Angle harus punya sudut pandang yang jelas (misal: fokus ke masalah yang diselesaikan, fokus ke momen pakai, fokus ke spek teknis, fokus ke harga/value, dll — sesuaikan sama poin brief yang TERISI).
+- Bahasa Indonesia santai, gaya media sosial, bukan bahasa formal/iklan kaku.
+
+Selain itu, tentuin juga:
+- "pilar" — kategori/pillar konten singkat (2-4 kata, misal: "Review Produk", "Edukasi", "Lifestyle", "Perbandingan Harga", "Testimoni")
+- "segmen" — target audiens singkat (2-4 kata, misal: "Pekerja Kantoran", "Gen Z Pecinta Sneakers", "Mahasiswa")
+Tentuin dua ini berdasar isi & fokus angle itu sendiri.
+
+OUTPUT: HANYA satu JSON object valid (BUKAN array), TANPA markdown code fence, TANPA teks penjelasan apa pun di luar JSON. Format persis:
+{
+  "catatan_angle": "ringkasan sudut pandang angle ini (maks 10 kata)",
+  "pilar": "...",
+  "segmen": "...",
+  "utas1": "...",
+  "utas2": "..."
+}`;
 }
 
 function stripJsonFence(text) {
@@ -170,4 +236,45 @@ async function generateAnglesFromBrief(brief) {
   });
 }
 
-module.exports = { generateAnglesFromBrief, buildPrompt, toCamelCase };
+/** Generate PERSIS 1 angle (object tunggal), dengan konteks angle yang udah dibuat sebelumnya. */
+async function generateOneAngle(brief) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
+
+  const prompt = buildSingleAnglePrompt(brief);
+  const result = await withGeminiRetry(
+    () => ai.models.generateContent({ model: CONFIG.GEMINI_MODEL, contents: prompt }),
+    "generateContent (1 angle)"
+  );
+  const rawText = result.text;
+  const cleaned = stripJsonFence(rawText);
+
+  let angle;
+  try {
+    angle = JSON.parse(cleaned);
+  } catch (e) {
+    throw new Error(`Gagal parse JSON dari Gemini: ${e.message}\n--- Raw response ---\n${rawText}`);
+  }
+
+  if (!angle || typeof angle !== "object" || Array.isArray(angle)) {
+    throw new Error(`Gemini tidak menghasilkan JSON object angle yang valid.\n--- Raw response ---\n${rawText}`);
+  }
+
+  const utas1 = String(angle.utas1 || "").trim();
+  const utas2 = String(angle.utas2 || "").trim();
+  const catatan = String(angle.catatan_angle || "Angle").trim();
+  const pilar = String(angle.pilar || "").trim();
+  const segmen = String(angle.segmen || "").trim();
+  if (!utas1 || !utas2) {
+    throw new Error(`Angle dari Gemini ada bagian kosong (utas1/utas2).`);
+  }
+  return { catatan_angle: catatan, pilar, segmen, utas1, utas2 };
+}
+
+module.exports = {
+  generateAnglesFromBrief,
+  buildPrompt,
+  toCamelCase,
+  generateOneAngle,
+  buildSingleAnglePrompt,
+};
