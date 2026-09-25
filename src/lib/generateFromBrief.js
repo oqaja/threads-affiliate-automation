@@ -18,7 +18,7 @@
 
 const { CONFIG } = require("./config");
 const { readSheetAsObjects, getHeaderColumnMap, setCellValue, appendRow } = require("./sheetsHelper");
-const { generateAnglesFromBrief, toCamelCase } = require("./geminiClient");
+const { generateAnglesFromBrief, generateOneAngle, toCamelCase } = require("./geminiClient");
 const { isDryRun } = require("./env");
 
 const BC = CONFIG.BRIEF_COL;
@@ -208,4 +208,130 @@ async function runGenerateFromBrief({ sheets, targetRowNumber }) {
   console.log("Selesai proses generate-from-brief.");
 }
 
-module.exports = { runGenerateFromBrief, processOneBrief, buildRowArray, getTopPerformingExamples };
+/**
+ * Generate PERSIS 1 angle baru untuk brief tertentu, tulis langsung sebagai
+ * baris baru ke JADWAL THREADS, return info progress. Idempoten secara
+ * alami — dipanggil berkali-kali oleh client sampai currentCount mencapai
+ * target (briefRow[BC.JUMLAH_ANGLE] atau default 4 kalau kosong).
+ *
+ * Return: { currentCount, target, finished, angle: {catatan_angle,...} }
+ * currentCount = jumlah angle YANG SUDAH ADA untuk Judul Konten ini
+ * (termasuk yang baru saja ditulis), dihitung dari JADWAL THREADS
+ * (filter Judul Konten sama persis).
+ */
+async function generateOneAngleStep(briefRowNumber, ctx) {
+  const { sheets } = ctx;
+
+  const briefHeaderMap = await getHeaderColumnMap(
+    sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME, CONFIG.BRIEF_HEADER_ROW
+  );
+  const { rows: briefRows } = await readSheetAsObjects(
+    sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME, CONFIG.BRIEF_HEADER_ROW
+  );
+  const briefRow = briefRows.find((r) => r._rowNumber === briefRowNumber);
+  if (!briefRow) throw new Error(`Baris brief #${briefRowNumber} tidak ditemukan.`);
+
+  const judul = String(briefRow[BC.JUDUL] || "").trim();
+  const brand = String(briefRow[BC.BRAND] || "").trim();
+  const link = String(briefRow[BC.LINK] || "").trim();
+  if (!judul) throw new Error('"Judul Konten" kosong di baris brief ini.');
+  if (!link) throw new Error('"Link Affiliate" kosong di baris brief ini.');
+
+  const target = Number(briefRow[BC.JUMLAH_ANGLE]) > 0
+    ? Math.floor(Number(briefRow[BC.JUMLAH_ANGLE]))
+    : 4; // default kalau kosong (Gemini tidak lagi bebas nentuin sendiri)
+
+  const kategori = String(briefRow[BC.KATEGORI] || "").trim();
+  const relevantFieldKeys = kategori
+    ? CONFIG.CATEGORY_FIELDS[kategori] || CONFIG.CATEGORY_FIELDS["Lainnya"]
+    : [];
+  const categoryFields = {};
+  for (const key of relevantFieldKeys) {
+    categoryFields[toCamelCase(key)] = briefRow[BC[key]];
+  }
+
+  const jadwalHeaderMap = await getHeaderColumnMap(
+    sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
+  );
+  const { rows: jadwalRows } = await readSheetAsObjects(
+    sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, CONFIG.HEADER_ROW
+  );
+  const existingForJudul = jadwalRows.filter(
+    (r) => String(r[C.JUDUL] || "").trim() === judul
+  );
+  const existingAngleSummaries = existingForJudul
+    .map((r) => String(r[C.CATATAN_ANGLE] || "").trim())
+    .filter(Boolean);
+
+  if (existingForJudul.length >= target) {
+    // Sudah cukup — tandai brief selesai kalau belum, jangan generate lagi.
+    if (briefHeaderMap[BC.STATUS_BRIEF]) {
+      if (isDryRun()) {
+        console.log(`     [DRY] Brief r${briefRowNumber} "${BC.STATUS_BRIEF}" = "${CONFIG.BRIEF_STATUS.DONE}"`);
+      } else {
+        await setCellValue(
+          sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME,
+          briefRowNumber, briefHeaderMap[BC.STATUS_BRIEF], CONFIG.BRIEF_STATUS.DONE
+        );
+      }
+    }
+    return { currentCount: existingForJudul.length, target, finished: true, angle: null };
+  }
+
+  const topExamples = await getTopPerformingExamples(sheets, kategori);
+
+  const angle = await generateOneAngle({
+    brand,
+    sellingPoint: briefRow[BC.SELLING_POINT],
+    harga: briefRow[BC.HARGA],
+    masalah: briefRow[BC.MASALAH],
+    momen: briefRow[BC.MOMEN],
+    kategori,
+    categoryFields,
+    topExamples,
+    existingAngleSummaries,
+  });
+
+  const rowValues = buildRowArray(jadwalHeaderMap, {
+    [C.JUDUL]: judul,
+    [C.BRAND]: brand,
+    [C.LINK]: link,
+    [C.KATEGORI]: kategori,
+    [C.PILAR]: angle.pilar,
+    [C.SEGMEN]: angle.segmen,
+    [C.CATATAN_ANGLE]: angle.catatan_angle,
+    [C.UTAS1]: angle.utas1,
+    [C.UTAS2]: angle.utas2,
+    [C.STATUS]: CONFIG.STATUS.READY,
+  });
+  if (isDryRun()) {
+    console.log(`     [DRY] append row JADWAL THREADS: angle "${angle.catatan_angle}"`);
+  } else {
+    await appendRow(sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.SHEET_NAME, rowValues);
+  }
+
+  // Di dry-run tetap dihitung +1 secara logika supaya progress counting bisa diamati.
+  const newCount = existingForJudul.length + 1;
+  const finished = newCount >= target;
+
+  if (finished && briefHeaderMap[BC.STATUS_BRIEF]) {
+    if (isDryRun()) {
+      console.log(`     [DRY] Brief r${briefRowNumber} "${BC.STATUS_BRIEF}" = "${CONFIG.BRIEF_STATUS.DONE}"`);
+    } else {
+      await setCellValue(
+        sheets, CONFIG.TRACKER_SPREADSHEET_ID, CONFIG.BRIEF_SHEET_NAME,
+        briefRowNumber, briefHeaderMap[BC.STATUS_BRIEF], CONFIG.BRIEF_STATUS.DONE
+      );
+    }
+  }
+
+  return { currentCount: newCount, target, finished, angle };
+}
+
+module.exports = {
+  runGenerateFromBrief,
+  processOneBrief,
+  generateOneAngleStep,
+  buildRowArray,
+  getTopPerformingExamples,
+};
