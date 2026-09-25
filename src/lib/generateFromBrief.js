@@ -237,9 +237,16 @@ async function generateOneAngleStep(briefRowNumber, ctx) {
   if (!judul) throw new Error('"Judul Konten" kosong di baris brief ini.');
   if (!link) throw new Error('"Link Affiliate" kosong di baris brief ini.');
 
-  const target = Number(briefRow[BC.JUMLAH_ANGLE]) > 0
-    ? Math.floor(Number(briefRow[BC.JUMLAH_ANGLE]))
-    : 4; // default kalau kosong (Gemini tidak lagi bebas nentuin sendiri)
+  const MAX_TARGET_ANGLE = 20;
+  const rawTarget = Number(briefRow[BC.JUMLAH_ANGLE]);
+  const target = rawTarget > 0 ? Math.floor(rawTarget) : 4; // default kalau kosong (Gemini tidak lagi bebas nentuin sendiri)
+  if (target > MAX_TARGET_ANGLE) {
+    throw new Error(
+      `Jumlah Angle di baris brief ini (${target}) melebihi batas wajar ` +
+      `(maks ${MAX_TARGET_ANGLE}). Cek dan perbaiki kolom "Jumlah Angle" ` +
+      `di tab BRIEF PRODUK sebelum generate ulang.`
+    );
+  }
 
   const kategori = String(briefRow[BC.KATEGORI] || "").trim();
   const relevantFieldKeys = kategori
